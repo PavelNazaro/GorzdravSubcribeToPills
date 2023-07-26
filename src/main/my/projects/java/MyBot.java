@@ -2,12 +2,16 @@ package main.my.projects.java;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.lang3.StringUtils;
 import org.json.JSONObject;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.io.File;
@@ -33,26 +37,48 @@ public class MyBot extends TelegramLongPollingBot {
     private long chatId;
     private String lastDay;
     private String userName;
+    private Set<String> districtsSet;
+    private String lastCommand;
     private boolean globalError = false;
     private final SendMessage sendMessage = new SendMessage();
     private static final Field[] DATA_WITH_ID_JSON_DECLARED_FIELDS = DataWithIdJson.class.getDeclaredFields();
     private static final Field[] DATA_JSON_DECLARED_FIELDS = DataJson.class.getDeclaredFields();
     private static final String START = "/start";
     private static final String STOP = "/stop";
+    private static final String MY_SUBSCRIPTIONS = "/my_subscriptions";
+    private static final String SHOW_DISTRICTS = "/show_districts";
+    private static final String CHANGE_DISTRICTS = "/change_districts";
     private static final String GET_DATA_FROM = "Get data from: {0}";
     private static final String BOT_STARTED = "Бот запущен!";
     private static final String BOT_ALREADY_STARTED = "Бот уже запущен!";
     private static final String BOT_STOPPED = "Бот остановлен!";
     private static final String BOT_ALREADY_STOPPED = "Бот уже остановлен!";
+    private static final String END_OF_CHOOSE = "Завершить выбор";
+    private static final String YOU_SUBSCRIBE_SUCCESSFULLY = "Вы успешно подписались!";
+    private static final String YOU_UNSUBSCRIBE_SUCCESSFULLY = "Вы успешно отписались!";
+    private static final String YOUR_DISTRICTS = "Ваши районы:";
+    private static final String CHOOSE_CONVENIENT_DISTRICTS = "Выберите удобные для Вас районы:";
+    private static final String YOU_MUST_CHOOSE_ONE_DISTRICT_MINIMUM = "Вам необходимо выбрать как минимум 1 район!";
+    private static final String CHOOSE_ALL_DISTRICTS = "Выбрать все";
+    private static final String REMOVE_ALL_DISTRICTS = "Удалить все";
+    private static final String BUTTON_ADD = " (Добавить)";
+    private static final String BUTTON_DELETE = " (Удалить)";
+    private static final String EMPTY = "Пусто";
+    private static final String DOT_AND_SPACE = ". ";
     private static final String INFO_MESSAGE = "---------------ИНФО:---------------" + System.lineSeparator() + "Нажмите MENU чтобы посмотреть все команды";
     private static final String INFO_START = "---------------ИНФО:---------------" + System.lineSeparator() + "Выберите в MENU /start чтобы запустить бот";
     private static final String WRONG_COMMAND = "Неверная команда!" + System.lineSeparator();
+    private static final String DISTRICT = " район";
+    private static final List<String> districts = new ArrayList<>(List.of("Адмиралтейский" + DISTRICT, "Василеостровский" + DISTRICT, "Выборгский" + DISTRICT, "Калининский" + DISTRICT, "Кировский" + DISTRICT, "Колпинский" + DISTRICT, "Красногвардейский" + DISTRICT, "Красносельский" + DISTRICT, "Кронштадтcкий" + DISTRICT, "Курортный" + DISTRICT, "Московский" + DISTRICT, "Невский" + DISTRICT, "Петроградский" + DISTRICT, "Петродворцовый" + DISTRICT, "Приморский" + DISTRICT, "Пушкинский" + DISTRICT, "Фрунзенский" + DISTRICT, "Центральный" + DISTRICT));
+    private static final String ROUND_BRACKET_OPEN = " (";
+    private static final String ROUND_BRACKET_CLOSE = ")";
 
     public MyBot(String botToken, String botUsername, File dataJsonFile, Logger logger) {
         this.botToken = botToken;
         this.botUsername = botUsername;
         this.dataJsonFile = dataJsonFile;
         this.logger = logger;
+        this.lastCommand = StringUtils.EMPTY;
 
         long startTime = System.nanoTime();
 
@@ -111,29 +137,54 @@ public class MyBot extends TelegramLongPollingBot {
         checkTextIsCommandOrUserChoose(text);
     }
 
-    private boolean createDataJsonWithIdFile() {
-        sendMessage.setChatId(chatId);
-
-        File file;
-        String fileName = String.format(DATA_JSON, chatId);
-        try {
-            file = findOrCreateFile(fileName);
-        } catch (IOException e) {
-            logger.log(Level.WARNING, String.format("MyBot Error 5: Error reading %s: %s", fileName, e.getMessage()));
-            return false;
-        }
-        if (!file.exists()) {
-            return false;
-        }
-
-        this.dataJsonWithIdFile = file;
-
-        return getDataFromJsonFile(true);
-    }
-
     private void checkTextIsCommandOrUserChoose(String text) {
+        String editedText = StringUtils.EMPTY;
+        if (text.contains(ROUND_BRACKET_OPEN) && text.contains(ROUND_BRACKET_CLOSE)) {
+            editedText = text.substring(0, text.lastIndexOf(ROUND_BRACKET_OPEN));
+        }
         if (text.equals(START)) {
             proceedStartCommand();
+            return;
+        }
+        if (lastCommand.equals(START) || lastCommand.equals(CHANGE_DISTRICTS)) {
+            if (!editedText.equals(StringUtils.EMPTY) && districts.contains(editedText)) {
+                proceedChangeDistrict(editedText);
+                return;
+            }
+            if (districts.contains(text)) {
+                proceedChangeDistrict(text);
+                return;
+            }
+        }
+        if (text.equals(MY_SUBSCRIPTIONS)) {
+            sendDistrictsSubscriptionToBot();
+            lastCommand = MY_SUBSCRIPTIONS;
+            return;
+        }
+        if (text.equals(CHANGE_DISTRICTS)) {
+            sendDistrictsSubscriptionToBot();
+            sendDistrictsToBot();
+            lastCommand = CHANGE_DISTRICTS;
+            return;
+        }
+        if (text.equals(END_OF_CHOOSE)) {
+            if (lastCommand.equals(START) || lastCommand.equals(CHANGE_DISTRICTS)) {
+                if (districtsSet.isEmpty()) {
+                    sendMessageToBot(YOU_MUST_CHOOSE_ONE_DISTRICT_MINIMUM);
+                    sendDistrictsToBot();
+                    return;
+                }
+                sendDistrictsSubscriptionToBot();
+                lastCommand = END_OF_CHOOSE;
+                return;
+            }
+        }
+        if (text.equals(CHOOSE_ALL_DISTRICTS) && (lastCommand.equals(START) || lastCommand.equals(CHANGE_DISTRICTS))) {
+            proceedChooseAllDistricts();
+            return;
+        }
+        if (text.equals(REMOVE_ALL_DISTRICTS) && (lastCommand.equals(START) || lastCommand.equals(CHANGE_DISTRICTS))) {
+            proceedRemoveAllDistricts();
             return;
         }
         if (text.equals(STOP)) {
@@ -142,6 +193,53 @@ public class MyBot extends TelegramLongPollingBot {
         }
 
         sendMessageToBot(WRONG_COMMAND + INFO_MESSAGE);
+    }
+
+    private void proceedStartCommand() {
+        if (idsMap.containsKey(chatId) && idsMap.get(chatId)) {
+            sendMessageToBot(BOT_ALREADY_STARTED);
+        } else {
+            sendMessageToBot(BOT_STARTED);
+            idsMap.put(chatId, true);
+            writeDataToJsonWithIdFile();
+            writeDataToFile();
+        }
+
+        if (districtsSet.isEmpty()) {
+            sendDistrictsToBot();
+            lastCommand = START;
+        } else {
+            sendDistrictsSubscriptionToBot();
+            lastCommand = SHOW_DISTRICTS;
+        }
+    }
+
+    private void proceedChangeDistrict(String text) {
+        if (districtsSet.contains(text)) {
+            districtsSet.remove(text);
+            sendMessageToBot(YOU_UNSUBSCRIBE_SUCCESSFULLY);
+        } else {
+            districtsSet.add(text);
+            sendMessageToBot(YOU_SUBSCRIBE_SUCCESSFULLY);
+        }
+        writeDataToJsonWithIdFile();
+        sendDistrictsSubscriptionToBot();
+        sendDistrictsToBot();
+    }
+
+    private void proceedChooseAllDistricts() {
+        districtsSet.addAll(districts);
+        sendDistrictsSubscriptionToBot();
+        writeDataToJsonWithIdFile();
+        lastCommand = CHOOSE_ALL_DISTRICTS;
+    }
+
+    private void proceedRemoveAllDistricts() {
+        districtsSet.removeAll(districts);
+        sendDistrictsSubscriptionToBot();
+        sendDistrictsToBot();
+        writeDataToJsonWithIdFile();
+        lastCommand = CHANGE_DISTRICTS;
     }
 
     private void proceedStopCommand() {
@@ -159,21 +257,52 @@ public class MyBot extends TelegramLongPollingBot {
         writeDataToFile();
     }
 
-    private void proceedStartCommand() {
-        if (idsMap.containsKey(chatId) && idsMap.get(chatId)) {
-            sendMessageToBot(BOT_ALREADY_STARTED);
-        } else {
-            sendMessageToBot(BOT_STARTED);
-            idsMap.put(chatId, true);
-            writeDataToJsonWithIdFile();
-            writeDataToFile();
-        }
-    }
-
     protected void sendMessageToBot(String text) {
         sendMessage.setReplyMarkup(new ReplyKeyboardRemove(true));
-
         sendMessage(text);
+    }
+
+    protected void sendDistrictsToBot() {
+        List<KeyboardRow> keyboardRowList = new LinkedList<>();
+        List<KeyboardRow> keyboardRowListAdd = new LinkedList<>();
+        keyboardRowList.add(
+                new KeyboardRow(List.of(
+                        new KeyboardButton(END_OF_CHOOSE),
+                        new KeyboardButton(REMOVE_ALL_DISTRICTS),
+                        new KeyboardButton(CHOOSE_ALL_DISTRICTS)))
+        );
+        districts.forEach(keyboardRow -> {
+            String append;
+            if (districtsSet.contains(keyboardRow)) {
+                append = BUTTON_DELETE;
+                keyboardRowList.add(new KeyboardRow(Collections.singletonList(new KeyboardButton(keyboardRow + append))));
+            } else {
+                append = BUTTON_ADD;
+                keyboardRowListAdd.add(new KeyboardRow(Collections.singletonList(new KeyboardButton(keyboardRow + append))));
+            }
+        });
+        keyboardRowList.addAll(keyboardRowListAdd);
+
+        ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup(keyboardRowList);
+        sendMessage.setReplyMarkup(replyKeyboardMarkup);
+
+        sendMessage(CHOOSE_CONVENIENT_DISTRICTS);
+    }
+
+    private void sendDistrictsSubscriptionToBot() {
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append(YOUR_DISTRICTS).append(System.lineSeparator());
+
+        if (districtsSet.isEmpty()){
+            stringBuilder.append(EMPTY).append(System.lineSeparator());
+        } else {
+            int i = 1;
+            for (String value : districtsSet){
+                stringBuilder.append(i++).append(DOT_AND_SPACE).append(value).append(System.lineSeparator());
+            }
+        }
+
+        sendMessageToBot(stringBuilder.toString());
     }
 
     private void sendMessage(String text) {
@@ -184,6 +313,27 @@ public class MyBot extends TelegramLongPollingBot {
         } catch (TelegramApiException e) {
             logger.log(Level.WARNING, "MyBot Error 6: {0}", e.getMessage());
         }
+    }
+
+    private boolean createDataJsonWithIdFile() {
+        sendMessage.setChatId(chatId);
+
+        File file;
+        String fileName = String.format(DATA_JSON, chatId);
+        try {
+            file = findOrCreateFile(fileName);
+        } catch (IOException e) {
+            logger.log(Level.WARNING, String.format("MyBot Error 5: Error reading %s: %s", fileName, e.getMessage()));
+            return false;
+        }
+        if (!file.exists()) {
+            return false;
+        }
+
+        this.dataJsonWithIdFile = file;
+        this.districtsSet = new TreeSet<>();
+
+        return getDataFromJsonFile(true);
     }
 
     protected boolean getDataFromJsonFile(boolean isWithId) {
@@ -216,8 +366,14 @@ public class MyBot extends TelegramLongPollingBot {
     private void getDataFromJsonWithIdFile(JSONObject dataJsonWithId) throws JsonProcessingException {
         DataWithIdJson data = new ObjectMapper().readValue(dataJsonWithId.toString(), DataWithIdJson.class);
 
+        Set<String> set = new TreeSet<>();
+        if (data.hasDistrictsSet()) {
+            set.addAll(data.getDistrictsSet());
+        }
+
         this.lastDay = data.getLastDay();
         this.userName = data.getUserName();
+        this.districtsSet = set;
     }
 
     private void getDataFromJsonFile(JSONObject dataJson) throws JsonProcessingException {
@@ -267,6 +423,7 @@ public class MyBot extends TelegramLongPollingBot {
         writeDataToFile(new JSONObject()
                         .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[0].getName(), LocalDate.now())
                         .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[1].getName(), userName)
+                        .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[2].getName(), districtsSet)
                 , dataJsonWithIdFile);
     }
 
