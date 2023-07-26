@@ -1,1 +1,1 @@
-# GorzdravSudcribeToPills
+# GorzdravSubcribeToPills
