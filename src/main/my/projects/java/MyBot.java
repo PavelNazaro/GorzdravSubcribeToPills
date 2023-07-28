@@ -31,51 +31,112 @@ public class MyBot extends TelegramLongPollingBot {
     private final Logger logger;
     private final String botToken;
     private final String botUsername;
+    private final String pathToJsonFromWeb;
     private final File dataJsonFile;
     private File dataJsonWithIdFile;
     private Map<Long, Boolean> idsMap;
     private long chatId;
     private String lastDay;
+    private Map<String, Map<String, ArrayList<DistrictsDTO>>> lastMap;
+    private Map<String, String> subscriptionMap;// drugName/benefit
     private String userName;
     private Set<String> districtsSet;
     private String lastCommand;
+    private LastUserChoose lastUserChoose;
     private boolean globalError = false;
     private final SendMessage sendMessage = new SendMessage();
+
     private static final Field[] DATA_WITH_ID_JSON_DECLARED_FIELDS = DataWithIdJson.class.getDeclaredFields();
     private static final Field[] DATA_JSON_DECLARED_FIELDS = DataJson.class.getDeclaredFields();
+
     private static final String START = "/start";
     private static final String STOP = "/stop";
     private static final String MY_SUBSCRIPTIONS = "/my_subscriptions";
-    private static final String SHOW_DISTRICTS = "/show_districts";
     private static final String CHANGE_DISTRICTS = "/change_districts";
+    private static final String FIND_DRUGS = "/find_drugs";
+    private static final String PROCEED_USER_CHOOSE_FIND_DRUGS = "/proceed_user_choose_find_drugs";
+    private static final String PROCEED_USER_CHOOSE_BENEFITS = "/proceed_user_choose_benefits";
+    private static final String PROCEED_JSON_PARSER = "/proceed_json_parser";
+
+    private static final String SPACE = StringUtils.SPACE;
+    private static final String LINE_SEPARATOR = System.lineSeparator();
+
+    private static final String FINDING_DRUG = "Поиск лекарства...";
+    private static final String SUBSCRIBE = "Подписаться";
+    private static final String EXIT_TO_MENU = "Выйти в меню";
     private static final String GET_DATA_FROM = "Get data from: {0}";
-    private static final String BOT_STARTED = "Бот запущен!";
-    private static final String BOT_ALREADY_STARTED = "Бот уже запущен!";
-    private static final String BOT_STOPPED = "Бот остановлен!";
-    private static final String BOT_ALREADY_STOPPED = "Бот уже остановлен!";
+    private static final String BOT_S_STARTED = "Бот%s запущен!";
+    private static final String BOT_S_STOPPED = "Бот%s остановлен!";
+    private static final String ALREADY = SPACE + "уже";
+    private static final String BOT_STARTED = String.format(BOT_S_STARTED, StringUtils.EMPTY);
+    private static final String BOT_STOPPED = String.format(BOT_S_STOPPED, StringUtils.EMPTY);
+    private static final String BOT_ALREADY_STARTED = String.format(BOT_STARTED, ALREADY);
+    private static final String BOT_ALREADY_STOPPED = String.format(BOT_STOPPED, ALREADY);
     private static final String END_OF_CHOOSE = "Завершить выбор";
+    private static final String CHOOSE_A_DRUG = "Выберите лекарство:";
+    private static final String EMPTY_OR_YOU_ALREADY_HAVE_IT = "Пусто! Либо то, что вы ищите уже у вас в подписках";
     private static final String YOU_SUBSCRIBE_SUCCESSFULLY = "Вы успешно подписались!";
     private static final String YOU_UNSUBSCRIBE_SUCCESSFULLY = "Вы успешно отписались!";
     private static final String YOUR_DISTRICTS = "Ваши районы:";
+    private static final String YOUR_SUBSCRIPTIONS = "Ваши подписки:";
     private static final String CHOOSE_CONVENIENT_DISTRICTS = "Выберите удобные для Вас районы:";
     private static final String YOU_MUST_CHOOSE_ONE_DISTRICT_MINIMUM = "Вам необходимо выбрать как минимум 1 район!";
     private static final String CHOOSE_ALL_DISTRICTS = "Выбрать все";
     private static final String REMOVE_ALL_DISTRICTS = "Удалить все";
-    private static final String BUTTON_ADD = " (Добавить)";
-    private static final String BUTTON_DELETE = " (Удалить)";
     private static final String EMPTY = "Пусто";
-    private static final String DOT_AND_SPACE = ". ";
-    private static final String INFO_MESSAGE = "---------------ИНФО:---------------" + System.lineSeparator() + "Нажмите MENU чтобы посмотреть все команды";
-    private static final String INFO_START = "---------------ИНФО:---------------" + System.lineSeparator() + "Выберите в MENU /start чтобы запустить бот";
-    private static final String WRONG_COMMAND = "Неверная команда!" + System.lineSeparator();
-    private static final String DISTRICT = " район";
+    private static final String DOT = ".";
+    private static final String DOT_AND_SPACE = DOT + SPACE;
+    private static final String INFO_WITH_LINE_SEPARATOR = "---------------ИНФО---------------" + LINE_SEPARATOR;
+    private static final String MENU = "MENU";
+    private static final String INFO_MESSAGE = INFO_WITH_LINE_SEPARATOR + "Нажмите " + MENU + " чтобы посмотреть все команды";
+    private static final String INFO_START = INFO_WITH_LINE_SEPARATOR + String.format("Выберите в %s %s чтобы запустить бот", MENU, START);
+    private static final String INFO_FIND_DRUGS = INFO_WITH_LINE_SEPARATOR + String.format("Выберите в %s %s для поиска лекарства", MENU, FIND_DRUGS);
+    private static final String WRONG_COMMAND = "Неверная команда!" + LINE_SEPARATOR;
+    private static final String ERROR_IN_CHOOSE = "Ошибка в выборе!";
+    private static final String ERROR_IN_CHOOSE_WITH_CAUSE = ERROR_IN_CHOOSE + " Причина: ";
+    private static final String ALREADY_EXIST = "Уже есть";
+    private static final String CHOOSE_YOUR_BENEFITS = "Выберите вашу льготу:";
+    private static final String WRITE_DRUG_NAME = "Напишите название лекарства для поиска: (Например: Юперио)";
+    private static final String DRUG_FOUND = "Найдено лекарство:";
+    private static final String THERE_ARE_NO_DRUGS = "В выбранных вами районах сейчас нет такого лекарства по такой льготе!";
+    private static final String YOU_COULD_SUBSCRIBE = "Вы можете подписаться и получать уведомления о наличии:";
+    private static final String DRUG_PRINT = "Лекарство: ";
+    private static final String BENEFIT_PRINT = "Льгота: ";
+    private static final String INFO = "Информация";
+    private static final String WRONG_NAME = "Неправильное название";
+    private static final String PHARMACIES_AND_AVAILABILITY = "Аптеки и наличие в ваших выбранных районах:";
+    private static final String NOTHING_FOUND_SEND_ANOTHER_DRUG_NAME = "Ничего не найдено! Введите другое название:";
+    private static final String ERROR_IN_CONNECTION_TRY_AGAIN_LATER = "Ошибка в подключении: Возможно сервер лекарст не отвечает. Попробуйте попозже";
+    protected static final String INFO_BEFORE_VISIT = "На момент обращения в аптеку не гарантируется наличие лекарственного препарата к выдаче, в связи с ограничением количества препарата в аптеке. Информацию о наличии препарата необходимо уточнить по телефону";
+    protected static final String UNSUCCESSFUL_RESULT = "Unsuccessful result";
+    protected static final String ERROR_IN_FIND_DRUGS = "Error in find drugs";
+    protected static final String RESPONSE_DTO_IS_NULL = "ResponseDTO is null";
+    private static final String MY_BOT_ERROR = "MyBot Error {0}";
+    private static final String DISTRICT = SPACE + "район";
     private static final List<String> districts = new ArrayList<>(List.of("Адмиралтейский" + DISTRICT, "Василеостровский" + DISTRICT, "Выборгский" + DISTRICT, "Калининский" + DISTRICT, "Кировский" + DISTRICT, "Колпинский" + DISTRICT, "Красногвардейский" + DISTRICT, "Красносельский" + DISTRICT, "Кронштадтcкий" + DISTRICT, "Курортный" + DISTRICT, "Московский" + DISTRICT, "Невский" + DISTRICT, "Петроградский" + DISTRICT, "Петродворцовый" + DISTRICT, "Приморский" + DISTRICT, "Пушкинский" + DISTRICT, "Фрунзенский" + DISTRICT, "Центральный" + DISTRICT));
-    private static final String ROUND_BRACKET_OPEN = " (";
+    private static final String BENEFIT = SPACE + "льгота";
+    private final List<String> benefits = new ArrayList<>(List.of("Федеральная" + BENEFIT, "Региональная" + BENEFIT, "Психиатрическая" + BENEFIT, "ВЗН" + BENEFIT));
+    private static final String ROUND_BRACKET_OPEN = "(";
     private static final String ROUND_BRACKET_CLOSE = ")";
+    private static final String BUTTON_ADD = ROUND_BRACKET_OPEN + "Добавить" + ROUND_BRACKET_CLOSE;
+    private static final String BUTTON_DELETE = ROUND_BRACKET_OPEN + "Удалить" + ROUND_BRACKET_CLOSE;
 
-    public MyBot(String botToken, String botUsername, File dataJsonFile, Logger logger) {
+    private enum SubscriptionsEnum {
+        ALL, SUBSCRIPTIONS_ONLY, DISTRICTS_ONLY;
+
+        boolean isSubscriptionOnly(SubscriptionsEnum subscriptionsEnum) {
+            return subscriptionsEnum.equals(SUBSCRIPTIONS_ONLY);
+        }
+
+        boolean isDistrictsOnly(SubscriptionsEnum subscriptionsEnum) {
+            return subscriptionsEnum.equals(DISTRICTS_ONLY);
+        }
+    }
+
+    public MyBot(String botToken, String botUsername, String pathToJsonFromWeb, File dataJsonFile, Logger logger) {
         this.botToken = botToken;
         this.botUsername = botUsername;
+        this.pathToJsonFromWeb = pathToJsonFromWeb;
         this.dataJsonFile = dataJsonFile;
         this.logger = logger;
         this.lastCommand = StringUtils.EMPTY;
@@ -83,7 +144,7 @@ public class MyBot extends TelegramLongPollingBot {
         long startTime = System.nanoTime();
 
         if (!getDataFromJsonFile(false)) {
-            logger.log(Level.WARNING, "MyBot Error 1: Error in create dataJson file!");
+            logger.log(Level.WARNING, MY_BOT_ERROR, " 1: Error in create dataJson file!");
             globalError = true;
         }
 
@@ -92,7 +153,7 @@ public class MyBot extends TelegramLongPollingBot {
 
     public void onUpdateReceived(Update update) {
         if (globalError) {
-            logger.log(Level.WARNING, "MyBot Error 2: Global error!");
+            logger.log(Level.WARNING, MY_BOT_ERROR, " 2: Global error!");
             return;
         }
 
@@ -101,7 +162,7 @@ public class MyBot extends TelegramLongPollingBot {
         if (update.hasMessage() && update.getMessage().hasText()) {
             Message message = update.getMessage();
             if (!message.hasText()) {
-                logger.log(Level.WARNING, "MyBot Error 3: Message is EMPTY!");
+                logger.log(Level.WARNING, MY_BOT_ERROR, " 3: Message is EMPTY!");
                 return;
             }
 
@@ -117,7 +178,7 @@ public class MyBot extends TelegramLongPollingBot {
         String text = message.getText();
 
         if (text.isEmpty()) {
-            logger.log(Level.WARNING, "MyBot Error 4: Message is EMPTY!");
+            logger.log(Level.WARNING, MY_BOT_ERROR, " 4: Message is EMPTY!");
             return;
         }
 
@@ -140,14 +201,14 @@ public class MyBot extends TelegramLongPollingBot {
     private void checkTextIsCommandOrUserChoose(String text) {
         String editedText = StringUtils.EMPTY;
         if (text.contains(ROUND_BRACKET_OPEN) && text.contains(ROUND_BRACKET_CLOSE)) {
-            editedText = text.substring(0, text.lastIndexOf(ROUND_BRACKET_OPEN));
+            editedText = text.substring(0, text.lastIndexOf(SPACE + ROUND_BRACKET_OPEN));
         }
         if (text.equals(START)) {
             proceedStartCommand();
             return;
         }
         if (lastCommand.equals(START) || lastCommand.equals(CHANGE_DISTRICTS)) {
-            if (!editedText.equals(StringUtils.EMPTY) && districts.contains(editedText)) {
+            if (StringUtils.isNotEmpty(editedText) && districts.contains(editedText)) {
                 proceedChangeDistrict(editedText);
                 return;
             }
@@ -157,27 +218,53 @@ public class MyBot extends TelegramLongPollingBot {
             }
         }
         if (text.equals(MY_SUBSCRIPTIONS)) {
-            sendDistrictsSubscriptionToBot();
+            sendSubscriptions(SubscriptionsEnum.ALL);
             lastCommand = MY_SUBSCRIPTIONS;
             return;
         }
         if (text.equals(CHANGE_DISTRICTS)) {
-            sendDistrictsSubscriptionToBot();
+            sendSubscriptions(SubscriptionsEnum.DISTRICTS_ONLY);
             sendDistrictsToBot();
             lastCommand = CHANGE_DISTRICTS;
             return;
         }
+        if (text.equals(FIND_DRUGS)) {
+            if (isDistrictsSetEmpty()) {
+                lastCommand = CHANGE_DISTRICTS;
+                return;
+            }
+
+            sendMessageToBot(WRITE_DRUG_NAME);
+            lastCommand = FIND_DRUGS;
+            return;
+        }
         if (text.equals(END_OF_CHOOSE)) {
             if (lastCommand.equals(START) || lastCommand.equals(CHANGE_DISTRICTS)) {
-                if (districtsSet.isEmpty()) {
-                    sendMessageToBot(YOU_MUST_CHOOSE_ONE_DISTRICT_MINIMUM);
-                    sendDistrictsToBot();
+                if (isDistrictsSetEmpty()) {
                     return;
                 }
-                sendDistrictsSubscriptionToBot();
+                sendSubscriptions(SubscriptionsEnum.ALL);
+
+                if (lastCommand.equals(START)) {
+                    sendMessageToBot(INFO_FIND_DRUGS);
+                }
                 lastCommand = END_OF_CHOOSE;
                 return;
             }
+            if (lastCommand.equals(PROCEED_JSON_PARSER)) {
+                sendSubscriptions(SubscriptionsEnum.ALL);
+                lastCommand = END_OF_CHOOSE;
+                return;
+            }
+
+            sendMessageToBot(INFO_MESSAGE);
+            lastCommand = END_OF_CHOOSE;
+            return;
+        }
+        if (text.equals(EXIT_TO_MENU)) {
+            sendMessageToBot(INFO_MESSAGE);
+            lastCommand = EXIT_TO_MENU;
+            return;
         }
         if (text.equals(CHOOSE_ALL_DISTRICTS) && (lastCommand.equals(START) || lastCommand.equals(CHANGE_DISTRICTS))) {
             proceedChooseAllDistricts();
@@ -187,12 +274,45 @@ public class MyBot extends TelegramLongPollingBot {
             proceedRemoveAllDistricts();
             return;
         }
+        if (lastCommand.equals(PROCEED_JSON_PARSER)) {
+            proceedJsonParser(text);
+            return;
+        }
+        if (lastCommand.equals(PROCEED_USER_CHOOSE_FIND_DRUGS)) {
+            if (benefits.contains(text)) {
+                proceedUserChooseBenefits(text);
+            } else {
+                sendMessageToBot(ERROR_IN_CHOOSE_WITH_CAUSE + WRONG_NAME);
+                sendFoundedDrugsToBot();
+            }
+            return;
+        }
+        if (lastCommand.equals(PROCEED_USER_CHOOSE_BENEFITS)) {
+            if (text.equals(SUBSCRIBE)) {
+                subscribeToDrug();
+                lastCommand = SUBSCRIBE;
+                return;
+            }
+
+            sendMessageToBot(ERROR_IN_CHOOSE);
+            sendFoundedDrugsToBot();
+            return;
+        }
         if (text.equals(STOP)) {
             proceedStopCommand();
             return;
         }
 
-        sendMessageToBot(WRONG_COMMAND + INFO_MESSAGE);
+        lastCommand = proceedJsonParserCommand(text);
+    }
+
+    private boolean isDistrictsSetEmpty() {
+        if (districtsSet.isEmpty()) {
+            sendMessageToBot(YOU_MUST_CHOOSE_ONE_DISTRICT_MINIMUM);
+            sendDistrictsToBot();
+            return true;
+        }
+        return false;
     }
 
     private void proceedStartCommand() {
@@ -207,11 +327,11 @@ public class MyBot extends TelegramLongPollingBot {
 
         if (districtsSet.isEmpty()) {
             sendDistrictsToBot();
-            lastCommand = START;
         } else {
-            sendDistrictsSubscriptionToBot();
-            lastCommand = SHOW_DISTRICTS;
+            sendSubscriptions(SubscriptionsEnum.ALL);
+            sendMessageToBot(INFO_FIND_DRUGS);
         }
+        lastCommand = START;
     }
 
     private void proceedChangeDistrict(String text) {
@@ -223,23 +343,96 @@ public class MyBot extends TelegramLongPollingBot {
             sendMessageToBot(YOU_SUBSCRIBE_SUCCESSFULLY);
         }
         writeDataToJsonWithIdFile();
-        sendDistrictsSubscriptionToBot();
+        sendSubscriptions(SubscriptionsEnum.DISTRICTS_ONLY);
         sendDistrictsToBot();
     }
 
     private void proceedChooseAllDistricts() {
         districtsSet.addAll(districts);
-        sendDistrictsSubscriptionToBot();
+        sendSubscriptions(SubscriptionsEnum.ALL);
         writeDataToJsonWithIdFile();
         lastCommand = CHOOSE_ALL_DISTRICTS;
     }
 
     private void proceedRemoveAllDistricts() {
         districtsSet.removeAll(districts);
-        sendDistrictsSubscriptionToBot();
+        sendSubscriptions(SubscriptionsEnum.DISTRICTS_ONLY);
         sendDistrictsToBot();
         writeDataToJsonWithIdFile();
         lastCommand = CHANGE_DISTRICTS;
+    }
+
+    private boolean subscribeToDrug() {
+        subscriptionMap.put(lastUserChoose.getDrugName(), lastUserChoose.getBenefit());
+        writeDataToJsonWithIdFile();
+
+        sendMessageToBot(YOU_SUBSCRIBE_SUCCESSFULLY);
+        sendSubscriptions(SubscriptionsEnum.SUBSCRIPTIONS_ONLY);
+        return true;
+    }
+
+    private void proceedJsonParser(String text) {
+        if (lastMap.containsKey(text)) {
+            if (proceedUserChooseFindDrugs(text)) {
+                lastCommand = PROCEED_USER_CHOOSE_FIND_DRUGS;
+            }
+        } else {
+            sendMessageToBot(ERROR_IN_CHOOSE_WITH_CAUSE + WRONG_NAME);
+            sendFoundedDrugsToBot();
+        }
+    }
+
+    private boolean proceedUserChooseFindDrugs(String text) {
+        if (subscriptionMap.containsKey(text)) {
+            sendMessageToBot(ERROR_IN_CHOOSE_WITH_CAUSE + ALREADY_EXIST);
+            sendFoundedDrugsToBot();
+            return false;
+        }
+
+        lastUserChoose = new LastUserChoose(text);
+        sendMessageToBot(CHOOSE_YOUR_BENEFITS, benefits, false);
+        return true;
+    }
+
+    private void proceedUserChooseBenefits(String benefit) {
+        lastUserChoose.setBenefit(benefit);
+        List<String> messagesList = getMessagesListOfDrugsMoreThanZero(lastMap.get(lastUserChoose.getDrugName()), benefit);
+        if (messagesList.isEmpty()) {
+            sendMessageToBot(DRUG_PRINT + lastUserChoose.getDrugName() + LINE_SEPARATOR
+                    + BENEFIT_PRINT + benefit + LINE_SEPARATOR
+                    + LINE_SEPARATOR
+                    + PHARMACIES_AND_AVAILABILITY);
+            sendMessageToBot(THERE_ARE_NO_DRUGS);
+        } else {
+            sendMessageToBot(DRUG_FOUND + LINE_SEPARATOR
+                    + DRUG_PRINT + lastUserChoose.getDrugName() + LINE_SEPARATOR
+                    + BENEFIT_PRINT + benefit + LINE_SEPARATOR
+                    + LINE_SEPARATOR
+                    + INFO + ": " + INFO_BEFORE_VISIT + "!" + LINE_SEPARATOR
+                    + LINE_SEPARATOR
+                    + PHARMACIES_AND_AVAILABILITY);
+            messagesList.forEach(this::sendMessageToBot);
+        }
+
+        sendMessageToBot(YOU_COULD_SUBSCRIBE, Arrays.asList(SUBSCRIBE, EXIT_TO_MENU), true);
+        lastCommand = PROCEED_USER_CHOOSE_BENEFITS;
+    }
+
+    private List<String> getMessagesListOfDrugsMoreThanZero(Map<String, ArrayList<DistrictsDTO>> districtsMapOfChoseDrug, String benefitName) {
+        List<String> messagesList = new ArrayList<>();
+        for (Map.Entry<String, ArrayList<DistrictsDTO>> entry : districtsMapOfChoseDrug.entrySet()) {
+            String district = entry.getKey();
+            ArrayList<DistrictsDTO> districtsDTOS = entry.getValue();
+            if (districtsSet.contains(district)) {
+                for (DistrictsDTO districtsDTO : districtsDTOS) {
+                    Benefit benefit = districtsDTO.getBenefit(benefitName);
+                    if (benefit.getCount() > 0) {
+                        messagesList.add(districtsDTO.createMessage(benefit));
+                    }
+                }
+            }
+        }
+        return messagesList;
     }
 
     private void proceedStopCommand() {
@@ -257,8 +450,75 @@ public class MyBot extends TelegramLongPollingBot {
         writeDataToFile();
     }
 
+    private String proceedJsonParserCommand(String text) {
+        lastMap = getLastMapByDrugInWeb(text);
+        if (lastMap.isEmpty() || lastMap.containsKey(ERROR_IN_FIND_DRUGS) || lastMap.containsKey(RESPONSE_DTO_IS_NULL)) {
+            if (lastCommand.equals(FIND_DRUGS)) {
+                sendMessageToBot(NOTHING_FOUND_SEND_ANOTHER_DRUG_NAME);
+                return lastCommand;
+            }
+
+            sendMessageToBot(WRONG_COMMAND + INFO_MESSAGE);
+            return text;
+        }
+        if (lastMap.containsKey(UNSUCCESSFUL_RESULT)) {
+            if (lastCommand.equals(FIND_DRUGS)) {
+                sendMessageToBot(ERROR_IN_CONNECTION_TRY_AGAIN_LATER);
+                return lastCommand;
+            }
+
+            sendMessageToBot(WRONG_COMMAND + INFO_MESSAGE);
+            return text;
+        }
+
+        sendMessageToBot(FINDING_DRUG);
+        if(sendFoundedDrugsToBot()) {
+            return PROCEED_JSON_PARSER;
+        }
+        return text;
+    }
+
+    private Map<String, Map<String, ArrayList<DistrictsDTO>>> getLastMapByDrugInWeb(String drug) {
+        return new JsonWebParser(logger).findDrugFromWeb(this, drug);
+    }
+
+    private boolean sendFoundedDrugsToBot() {
+        List<String> drugsToSend = new ArrayList<>();
+        drugsToSend.add(END_OF_CHOOSE);
+        for (Map.Entry<String, Map<String, ArrayList<DistrictsDTO>>> entry : lastMap.entrySet()) {
+            drugsToSend.add(entry.getKey());
+        }
+
+        if (drugsToSend.size() > 1) {
+            sendSubscriptions(SubscriptionsEnum.SUBSCRIPTIONS_ONLY);
+            sendMessageToBot(CHOOSE_A_DRUG, drugsToSend, false);
+        } else {
+            sendMessageToBot(EMPTY_OR_YOU_ALREADY_HAVE_IT);
+            sendSubscriptions(SubscriptionsEnum.SUBSCRIPTIONS_ONLY);
+            lastCommand = EMPTY_OR_YOU_ALREADY_HAVE_IT;
+            return false;
+        }
+        return true;
+    }
+
     protected void sendMessageToBot(String text) {
         sendMessage.setReplyMarkup(new ReplyKeyboardRemove(true));
+        sendMessage(text);
+    }
+
+    protected void sendMessageToBot(String text, List<String> keyboardRows, boolean isPrintInOneRow) {
+        List<KeyboardRow> keyboardRowList = new LinkedList<>();
+        if (isPrintInOneRow) {
+            List<KeyboardButton> keyboardButtonList = new ArrayList<>();
+            keyboardRows.forEach(buttonName -> keyboardButtonList.add(new KeyboardButton(buttonName)));
+            keyboardRowList.add(new KeyboardRow(keyboardButtonList));
+        } else {
+            keyboardRows.forEach(buttonName -> keyboardRowList.add(new KeyboardRow(Collections.singletonList(new KeyboardButton(buttonName)))));
+        }
+
+        ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup(keyboardRowList);
+        sendMessage.setReplyMarkup(replyKeyboardMarkup);
+
         sendMessage(text);
     }
 
@@ -272,13 +532,10 @@ public class MyBot extends TelegramLongPollingBot {
                         new KeyboardButton(CHOOSE_ALL_DISTRICTS)))
         );
         districts.forEach(keyboardRow -> {
-            String append;
             if (districtsSet.contains(keyboardRow)) {
-                append = BUTTON_DELETE;
-                keyboardRowList.add(new KeyboardRow(Collections.singletonList(new KeyboardButton(keyboardRow + append))));
+                keyboardRowList.add(new KeyboardRow(Collections.singletonList(new KeyboardButton(keyboardRow + SPACE + BUTTON_DELETE))));
             } else {
-                append = BUTTON_ADD;
-                keyboardRowListAdd.add(new KeyboardRow(Collections.singletonList(new KeyboardButton(keyboardRow + append))));
+                keyboardRowListAdd.add(new KeyboardRow(Collections.singletonList(new KeyboardButton(keyboardRow + SPACE + BUTTON_ADD))));
             }
         });
         keyboardRowList.addAll(keyboardRowListAdd);
@@ -289,20 +546,43 @@ public class MyBot extends TelegramLongPollingBot {
         sendMessage(CHOOSE_CONVENIENT_DISTRICTS);
     }
 
-    private void sendDistrictsSubscriptionToBot() {
+    private void sendSubscriptions(SubscriptionsEnum sEnum) {
         StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append(YOUR_DISTRICTS).append(System.lineSeparator());
+        addSetToStringBuilder(stringBuilder, YOUR_DISTRICTS + LINE_SEPARATOR, districtsSet);
+        if (sEnum.isDistrictsOnly(sEnum)) {
+            sendMessageToBot(stringBuilder.toString());
+        } else {
+            if (sEnum.isSubscriptionOnly(sEnum)) {
+                stringBuilder.setLength(0);
+            } else {
+                stringBuilder.append(LINE_SEPARATOR);
+            }
+            addSetToStringBuilder(stringBuilder, YOUR_SUBSCRIPTIONS + LINE_SEPARATOR, subscriptionMap);
 
-        if (districtsSet.isEmpty()){
-            stringBuilder.append(EMPTY).append(System.lineSeparator());
+            if (!sEnum.isSubscriptionOnly(sEnum)) {
+                stringBuilder.append(LINE_SEPARATOR).append(INFO_MESSAGE);
+            }
+            sendMessageToBot(stringBuilder.toString());
+        }
+    }
+
+    private void addSetToStringBuilder(StringBuilder stringBuilder, String str, Object object) {
+        stringBuilder.append(str);
+        if ((object instanceof Set && ((Set<?>) object).isEmpty()) || (object instanceof Map && ((Map<?, ?>) object).isEmpty())) {
+            stringBuilder.append(EMPTY).append(LINE_SEPARATOR);
         } else {
             int i = 1;
-            for (String value : districtsSet){
-                stringBuilder.append(i++).append(DOT_AND_SPACE).append(value).append(System.lineSeparator());
+            if (object instanceof Set) {
+                for (String value : (Set<String>) object) {
+                    stringBuilder.append(i++).append(DOT_AND_SPACE).append(value).append(LINE_SEPARATOR);
+                }
+            }
+            if (object instanceof Map) {
+                for (String value : ((Map<String, String>) object).keySet()) {
+                    stringBuilder.append(i++).append(DOT_AND_SPACE).append(value).append(ROUND_BRACKET_OPEN).append(((Map<String, String>) object).get(value)).append(ROUND_BRACKET_CLOSE).append(LINE_SEPARATOR);
+                }
             }
         }
-
-        sendMessageToBot(stringBuilder.toString());
     }
 
     private void sendMessage(String text) {
@@ -311,7 +591,7 @@ public class MyBot extends TelegramLongPollingBot {
         try {
             execute(sendMessage);
         } catch (TelegramApiException e) {
-            logger.log(Level.WARNING, "MyBot Error 6: {0}", e.getMessage());
+            logger.log(Level.WARNING, MY_BOT_ERROR, " 6: " + e.getMessage());
         }
     }
 
@@ -323,7 +603,7 @@ public class MyBot extends TelegramLongPollingBot {
         try {
             file = findOrCreateFile(fileName);
         } catch (IOException e) {
-            logger.log(Level.WARNING, String.format("MyBot Error 5: Error reading %s: %s", fileName, e.getMessage()));
+            logger.log(Level.WARNING, MY_BOT_ERROR, String.format(" 5: Error reading %s: %s", fileName, e.getMessage()));
             return false;
         }
         if (!file.exists()) {
@@ -332,6 +612,7 @@ public class MyBot extends TelegramLongPollingBot {
 
         this.dataJsonWithIdFile = file;
         this.districtsSet = new TreeSet<>();
+        this.subscriptionMap = new HashMap<>();
 
         return getDataFromJsonFile(true);
     }
@@ -346,7 +627,7 @@ public class MyBot extends TelegramLongPollingBot {
         try {
             JSONObject dataJson = getJSONObjectFromFile(file);
             if (dataJson == null) {
-                logger.log(Level.WARNING, "MyBot Error 7: JsonObject dataJson null");
+                logger.log(Level.WARNING, MY_BOT_ERROR, " 7: JsonObject dataJson null");
                 return false;
             }
 
@@ -358,7 +639,7 @@ public class MyBot extends TelegramLongPollingBot {
 
             return true;
         } catch (IOException e) {
-            logger.log(Level.WARNING, "MyBot Error 8: {0}", e.getMessage());
+            logger.log(Level.WARNING, MY_BOT_ERROR, " 8: " + e.getMessage());
             return false;
         }
     }
@@ -370,10 +651,15 @@ public class MyBot extends TelegramLongPollingBot {
         if (data.hasDistrictsSet()) {
             set.addAll(data.getDistrictsSet());
         }
+        Map<String, String> map = new HashMap<>();
+        if (data.hasSubscriptionMap()) {
+            map.putAll(data.getSubscriptionMap());
+        }
 
         this.lastDay = data.getLastDay();
         this.userName = data.getUserName();
         this.districtsSet = set;
+        this.subscriptionMap = map;
     }
 
     private void getDataFromJsonFile(JSONObject dataJson) throws JsonProcessingException {
@@ -401,7 +687,7 @@ public class MyBot extends TelegramLongPollingBot {
 
                 myJson = new Scanner(file);
                 if (!myJson.hasNext()) {
-                    logger.log(Level.WARNING, "MyBot Error 9: Json file still empty: {0}", file);
+                    logger.log(Level.WARNING, MY_BOT_ERROR, " 9: Json file still empty: " + file);
                     myJson.close();
                     return null;
                 }
@@ -420,10 +706,12 @@ public class MyBot extends TelegramLongPollingBot {
     }
 
     private void writeDataToJsonWithIdFile() {
+        int i = 0;
         writeDataToFile(new JSONObject()
-                        .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[0].getName(), LocalDate.now())
-                        .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[1].getName(), userName)
-                        .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[2].getName(), districtsSet)
+                        .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[i++].getName(), LocalDate.now())
+                        .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[i++].getName(), userName)
+                        .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[i++].getName(), districtsSet)
+                        .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[i++].getName(), subscriptionMap)
                 , dataJsonWithIdFile);
     }
 
@@ -431,7 +719,7 @@ public class MyBot extends TelegramLongPollingBot {
         try (PrintWriter out = new PrintWriter(dataJsonFile)) {
             out.write(jsonObject.toString());
         } catch (Exception e) {
-            logger.log(Level.WARNING, "MyBot Error 10: {0}", e.getMessage());
+            logger.log(Level.WARNING, MY_BOT_ERROR, " 10: " + e.getMessage());
         }
     }
 
@@ -445,5 +733,13 @@ public class MyBot extends TelegramLongPollingBot {
 
     public boolean isGlobalError() {
         return globalError;
+    }
+
+    public List<String> getBenefits() {
+        return benefits;
+    }
+
+    public String getPathToJsonFromWeb() {
+        return pathToJsonFromWeb;
     }
 }

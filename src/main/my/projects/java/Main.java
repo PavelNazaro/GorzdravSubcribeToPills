@@ -49,13 +49,14 @@ public class Main {
 
             String botToken = properties.getProperty("botToken");
             String botUsername = properties.getProperty("botUsername");
+            String pathToJsonFromWeb = properties.getProperty("pathToJsonFromWeb");
 
-            if (botToken.isEmpty() || botUsername.isEmpty()) {
+            if (botToken.isEmpty() || botUsername.isEmpty() || pathToJsonFromWeb.isEmpty()) {
                 logger.log(Level.WARNING, "Main Error 5: Any of properties is EMPTY!");
                 return;
             }
 
-            MyBot bot = new MyBot(botToken, botUsername, dataJsonFile, logger);
+            MyBot bot = new MyBot(botToken, botUsername, pathToJsonFromWeb, dataJsonFile, logger);
             if (bot.isGlobalError()) {
                 logger.log(Level.WARNING, "Main Error 6: Bot {0} started with error!", botUsername);
                 shutdownJar();
