@@ -1,19 +1,22 @@
 package main.my.projects.java;
 
+import java.util.Map;
 import java.util.Set;
 
 public class DataWithIdJson {
     private String lastDay;
     private String userName;
     private Set<String> districtsSet;
+    private Map<String, String> subscriptionMap;
 
     public DataWithIdJson() {
     }
 
-    public DataWithIdJson(String lastDay, String userName, Set<String> districtsSet) {
+    public DataWithIdJson(String lastDay, String userName, Set<String> districtsSet, Map<String, String> subscriptionMap) {
         this.lastDay = lastDay;
         this.userName = userName;
         this.districtsSet = districtsSet;
+        this.subscriptionMap = subscriptionMap;
     }
 
     public String getLastDay() {
@@ -40,7 +43,19 @@ public class DataWithIdJson {
         this.districtsSet = districtsSet;
     }
 
+    public Map<String, String> getSubscriptionMap() {
+        return subscriptionMap;
+    }
+
+    public void setSubscriptionMap(Map<String, String> subscriptionMap) {
+        this.subscriptionMap = subscriptionMap;
+    }
+
     public boolean hasDistrictsSet() {
         return districtsSet != null;
+    }
+
+    public boolean hasSubscriptionMap() {
+        return subscriptionMap != null;
     }
 }
