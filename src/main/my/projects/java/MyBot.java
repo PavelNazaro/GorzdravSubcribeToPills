@@ -8,8 +8,10 @@ import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -120,6 +122,7 @@ public class MyBot extends TelegramLongPollingBot {
     private static final String ROUND_BRACKET_CLOSE = ")";
     private static final String BUTTON_ADD = ROUND_BRACKET_OPEN + "Добавить" + ROUND_BRACKET_CLOSE;
     private static final String BUTTON_DELETE = ROUND_BRACKET_OPEN + "Удалить" + ROUND_BRACKET_CLOSE;
+    private static final List<List<String>> SUBSCRIBE_AND_EXIT_BUTTONS = List.of(List.of(SUBSCRIBE, EXIT_TO_MENU));
 
     private enum SubscriptionsEnum {
         ALL, SUBSCRIPTIONS_ONLY, DISTRICTS_ONLY;
@@ -390,7 +393,7 @@ public class MyBot extends TelegramLongPollingBot {
         }
 
         lastUserChoose = new LastUserChoose(text);
-        sendMessageToBot(CHOOSE_YOUR_BENEFITS, benefits, false);
+        sendReplyKeyboardToBot(CHOOSE_YOUR_BENEFITS, swapOneRowToRows(benefits));
         return true;
     }
 
@@ -414,7 +417,7 @@ public class MyBot extends TelegramLongPollingBot {
             messagesList.forEach(this::sendMessageToBot);
         }
 
-        sendMessageToBot(YOU_COULD_SUBSCRIBE, Arrays.asList(SUBSCRIBE, EXIT_TO_MENU), true);
+        sendReplyKeyboardToBot(YOU_COULD_SUBSCRIBE, SUBSCRIBE_AND_EXIT_BUTTONS);
         lastCommand = PROCEED_USER_CHOOSE_BENEFITS;
     }
 
@@ -491,7 +494,7 @@ public class MyBot extends TelegramLongPollingBot {
 
         if (drugsToSend.size() > 1) {
             sendSubscriptions(SubscriptionsEnum.SUBSCRIPTIONS_ONLY);
-            sendMessageToBot(CHOOSE_A_DRUG, drugsToSend, false);
+            sendReplyKeyboardToBot(CHOOSE_A_DRUG, swapOneRowToRows(drugsToSend));
         } else {
             sendMessageToBot(EMPTY_OR_YOU_ALREADY_HAVE_IT);
             sendSubscriptions(SubscriptionsEnum.SUBSCRIPTIONS_ONLY);
@@ -506,44 +509,24 @@ public class MyBot extends TelegramLongPollingBot {
         sendMessage(text);
     }
 
-    protected void sendMessageToBot(String text, List<String> keyboardRows, boolean isPrintInOneRow) {
-        List<KeyboardRow> keyboardRowList = new LinkedList<>();
-        if (isPrintInOneRow) {
-            List<KeyboardButton> keyboardButtonList = new ArrayList<>();
-            keyboardRows.forEach(buttonName -> keyboardButtonList.add(new KeyboardButton(buttonName)));
-            keyboardRowList.add(new KeyboardRow(keyboardButtonList));
-        } else {
-            keyboardRows.forEach(buttonName -> keyboardRowList.add(new KeyboardRow(Collections.singletonList(new KeyboardButton(buttonName)))));
+    protected void sendDistrictsToBot() {
+        List<List<String>> rows = new ArrayList<>();
+        rows.add(List.of(END_OF_CHOOSE, REMOVE_ALL_DISTRICTS, CHOOSE_ALL_DISTRICTS));
+
+        List<String> districtsButtonsDelete = new ArrayList<>();
+        List<String> districtsButtonsAdd = new ArrayList<>();
+        for (String districtName : districts) {
+            if (districtsSet.contains(districtName)) {
+                districtsButtonsDelete.add(districtName + SPACE + BUTTON_DELETE);
+            } else {
+                districtsButtonsAdd.add(districtName + SPACE + BUTTON_ADD);
+            }
         }
 
-        ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup(keyboardRowList);
-        sendMessage.setReplyMarkup(replyKeyboardMarkup);
+        rows.addAll(swapOneRowToRows(districtsButtonsDelete));
+        rows.addAll(swapOneRowToRows(districtsButtonsAdd));
 
-        sendMessage(text);
-    }
-
-    protected void sendDistrictsToBot() {
-        List<KeyboardRow> keyboardRowList = new LinkedList<>();
-        List<KeyboardRow> keyboardRowListAdd = new LinkedList<>();
-        keyboardRowList.add(
-                new KeyboardRow(List.of(
-                        new KeyboardButton(END_OF_CHOOSE),
-                        new KeyboardButton(REMOVE_ALL_DISTRICTS),
-                        new KeyboardButton(CHOOSE_ALL_DISTRICTS)))
-        );
-        districts.forEach(keyboardRow -> {
-            if (districtsSet.contains(keyboardRow)) {
-                keyboardRowList.add(new KeyboardRow(Collections.singletonList(new KeyboardButton(keyboardRow + SPACE + BUTTON_DELETE))));
-            } else {
-                keyboardRowListAdd.add(new KeyboardRow(Collections.singletonList(new KeyboardButton(keyboardRow + SPACE + BUTTON_ADD))));
-            }
-        });
-        keyboardRowList.addAll(keyboardRowListAdd);
-
-        ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup(keyboardRowList);
-        sendMessage.setReplyMarkup(replyKeyboardMarkup);
-
-        sendMessage(CHOOSE_CONVENIENT_DISTRICTS);
+        sendReplyKeyboardToBot(CHOOSE_CONVENIENT_DISTRICTS, rows);
     }
 
     private void sendSubscriptions(SubscriptionsEnum sEnum) {
@@ -583,6 +566,58 @@ public class MyBot extends TelegramLongPollingBot {
                 }
             }
         }
+    }
+
+    private List<List<String>> swapOneRowToRows(List<String> buttonNamesList) {
+        List<List<String>> rows = new ArrayList<>();
+
+        for (String buttonName : buttonNamesList){
+            rows.add(List.of(buttonName));
+        }
+
+        return rows;
+    }
+
+    private void sendReplyKeyboardToBot(String text, List<List<String>> buttonNamesList) {
+        List<KeyboardRow> rows = new ArrayList<>();
+
+        ReplyKeyboardMarkup replyKeyboardMarkup = new ReplyKeyboardMarkup();
+        replyKeyboardMarkup.setResizeKeyboard(true);
+        replyKeyboardMarkup.setOneTimeKeyboard(true);
+
+        for (List<String> buttonNames : buttonNamesList) {
+            KeyboardRow row = new KeyboardRow();
+            for (String buttonName : buttonNames) {
+                row.add(new KeyboardButton(buttonName));
+            }
+            rows.add(row);
+        }
+
+        replyKeyboardMarkup.setKeyboard(rows);
+
+        sendMessage.setReplyMarkup(replyKeyboardMarkup);
+        sendMessage(text);
+    }
+
+    private void sendInlineKeyboardToBot(String text, List<List<String>> buttonNamesList) {
+        List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+
+        InlineKeyboardMarkup inlineKeyboardMarkup = new InlineKeyboardMarkup();
+
+        for (List<String> buttonNames : buttonNamesList) {
+            List<InlineKeyboardButton> row = new ArrayList<>();
+            for (String buttonName : buttonNames) {
+                InlineKeyboardButton button = new InlineKeyboardButton(buttonName);
+                button.setCallbackData(buttonName); // This is the data sent when the button is clicked
+                row.add(button);
+            }
+            rows.add(row);
+        }
+
+        inlineKeyboardMarkup.setKeyboard(rows);
+
+        sendMessage.setReplyMarkup(inlineKeyboardMarkup);
+        sendMessage(text);
     }
 
     private void sendMessage(String text) {
