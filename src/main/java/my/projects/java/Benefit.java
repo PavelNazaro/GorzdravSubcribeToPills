@@ -1,4 +1,4 @@
-package main.my.projects.java;
+package my.projects.java;
 
 public class Benefit {
     private String benefitName;

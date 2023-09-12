@@ -1,4 +1,4 @@
-package main.my.projects.java;
+package my.projects.java;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,8 +26,8 @@ import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static main.my.projects.java.Main.DATA_JSON;
-import static main.my.projects.java.Main.findOrCreateFile;
+import static my.projects.java.Main.DATA_JSON;
+import static my.projects.java.Main.findOrCreateFile;
 
 public class MyBot extends TelegramLongPollingBot {
     private final Logger logger;
