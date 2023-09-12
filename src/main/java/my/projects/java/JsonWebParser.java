@@ -15,8 +15,6 @@ import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static my.projects.java.MyBot.*;
-
 public class JsonWebParser {
     private static final String JSON_PARSER_ERROR = "JsonParser Error {0}";
     private Logger logger;
@@ -38,21 +36,21 @@ public class JsonWebParser {
         Map<String, Map<String, ArrayList<DistrictsDTO>>> mapMap = new LinkedHashMap<>();
 
         if (responseDTO == null) {
-            logger.log(Level.WARNING, JSON_PARSER_ERROR, "1: " + RESPONSE_DTO_IS_NULL);
-            mapMap.put(RESPONSE_DTO_IS_NULL, new HashMap<>());
+            logger.log(Level.WARNING, JSON_PARSER_ERROR, "1: " + MyBot.RESPONSE_DTO_IS_NULL);
+            mapMap.put(MyBot.RESPONSE_DTO_IS_NULL, new HashMap<>());
             return mapMap;
         }
 
         if (responseDTO.getResult().isEmpty()) {
-            logger.log(Level.WARNING, JSON_PARSER_ERROR, "2: " + ERROR_IN_FIND_DRUGS);
-            mapMap.put(ERROR_IN_FIND_DRUGS, new HashMap<>());
+            logger.log(Level.WARNING, JSON_PARSER_ERROR, "2: " + MyBot.ERROR_IN_FIND_DRUGS);
+            mapMap.put(MyBot.ERROR_IN_FIND_DRUGS, new HashMap<>());
             return mapMap;
         }
 
 
         if (!responseDTO.getSuccess()) {
-            logger.log(Level.WARNING, JSON_PARSER_ERROR, "3: " + UNSUCCESSFUL_RESULT);
-            mapMap.put(UNSUCCESSFUL_RESULT, new HashMap<>());
+            logger.log(Level.WARNING, JSON_PARSER_ERROR, "3: " + MyBot.UNSUCCESSFUL_RESULT);
+            mapMap.put(MyBot.UNSUCCESSFUL_RESULT, new HashMap<>());
             return mapMap;
         }
 
@@ -73,7 +71,7 @@ public class JsonWebParser {
                     JSONObject storeObject = (JSONObject) obj;
 
                     String addressSplit = storeObject.getString(fields[2].getName());
-                    int position = addressSplit.indexOf(" * " + INFO_BEFORE_VISIT);
+                    int position = addressSplit.indexOf(" * " + MyBot.INFO_BEFORE_VISIT);
 
                     districtsDTOS.add(new DistrictsDTO(
                             storeObject.getString(fields[0].getName()),
