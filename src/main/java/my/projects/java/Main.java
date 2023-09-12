@@ -28,7 +28,7 @@ public class Main {
             shutdownJar();
         }
 
-        if (!dataJsonFile.exists()) {
+        if (dataJsonFile == null || !dataJsonFile.exists()) {
             logger.log(Level.WARNING, "Main Error 2: {0} still not exist", CONFIG_PROPERTIES);
             shutdownJar();
         }
