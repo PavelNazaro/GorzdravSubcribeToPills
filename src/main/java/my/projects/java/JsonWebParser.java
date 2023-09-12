@@ -1,4 +1,4 @@
-package main.my.projects.java;
+package my.projects.java;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -15,7 +15,7 @@ import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static main.my.projects.java.MyBot.*;
+import static my.projects.java.MyBot.*;
 
 public class JsonWebParser {
     private static final String JSON_PARSER_ERROR = "JsonParser Error {0}";

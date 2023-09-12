@@ -1,4 +1,4 @@
-package main.my.projects.java;
+package my.projects.java;
 
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -28,7 +28,7 @@ public class Main {
             shutdownJar();
         }
 
-        if (!dataJsonFile.exists()) {
+        if (dataJsonFile == null || !dataJsonFile.exists()) {
             logger.log(Level.WARNING, "Main Error 2: {0} still not exist", CONFIG_PROPERTIES);
             shutdownJar();
         }
