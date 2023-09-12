@@ -303,6 +303,7 @@ public class MyBot extends TelegramLongPollingBot {
         }
         if (text.equals(STOP)) {
             proceedStopCommand();
+            lastCommand = STOP;
             return;
         }
 
@@ -323,6 +324,14 @@ public class MyBot extends TelegramLongPollingBot {
             sendMessageToBot(BOT_ALREADY_STARTED);
         } else {
             sendMessageToBot(BOT_STARTED);
+            if (!idsMap.containsKey(chatId)){
+                sendMessageToBot("Вас приветствует неоффициальный бот по поиску лекарств от Горздрава!" + LINE_SEPARATOR +
+                        LINE_SEPARATOR +
+                        "Бот создан не только для поиска лекарств в наличии, а также для подписки на них, если лекарства не оказалось в наличии в аптеках Санкт-Петербурга. Для начала выберите удобный(е) для вас район(ы) в котором бот будет искать наличие лекарств для Вас. Для завершения выбора районов, используйте кнопку с сответствующим названием. Далее вы сможете искать лекарства и их наличие, а также подписаться на уведомления." + LINE_SEPARATOR +
+                        LINE_SEPARATOR +
+                        "Пожалуйста, пользуйтесь всплывающим блоком кнопок, которые сделаны для Вашего максимального удобства и быстрого управления" + LINE_SEPARATOR +
+                        "Бот бесплатен!");
+            }
             idsMap.put(chatId, true);
             writeDataToJsonWithIdFile();
             writeDataToFile();
