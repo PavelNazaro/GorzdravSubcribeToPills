@@ -56,6 +56,8 @@ public class MyBot extends TelegramLongPollingBot {
     private static final String MY_SUBSCRIPTIONS = "/my_subscriptions";
     private static final String CHANGE_DISTRICTS = "/change_districts";
     private static final String FIND_DRUGS = "/find_drugs";
+    private static final String UNSUBSCRIBE = "/unsubscribe";
+    private static final String UNSUBSCRIBE_FROM_ALL = "Отписаться от всего";
     private static final String SEND_MESSAGE_TO_ALL_USERS = "/smtau";
     private static final String PROCEED_USER_CHOOSE_FIND_DRUGS = "/proceed_user_choose_find_drugs";
     private static final String PROCEED_USER_CHOOSE_BENEFITS = "/proceed_user_choose_benefits";
@@ -79,8 +81,14 @@ public class MyBot extends TelegramLongPollingBot {
     private static final String CHOOSE_A_DRUG = "Выберите лекарство:";
     private static final String EMPTY_OR_YOU_ALREADY_HAVE_IT = "Пусто! Либо то, что вы ищите уже у вас в подписках";
     private static final String YOU_SUBSCRIBE_SUCCESSFULLY = "Вы успешно подписались!";
+    private static final String YOU_SUCCESSFULLY_ADDED_DISTRICT = "Вы успешно добавили район!";
     private static final String YOU_UNSUBSCRIBE_SUCCESSFULLY = "Вы успешно отписались!";
+    private static final String YOU_SUCCESSFULLY_REMOVED_DISTRICT = "Вы успешно удалили район!";
+    private static final String ERROR_IN_UNSUBSCRIBE = "Ошибка в отписке!";
+    private static final String TRY_NEXT_TIME = " Попробуйте попозже";
     private static final String SEND_MESSAGE_THAT_WILL_SEND_TO_ALL_USERS = "Введите сообщение, которое отправится всем пользователям:";
+    private static final String YOU_ARE_NOT_HAVE_SUBSCRIPTIONS = "У вас нет подписок!";
+    private static final String CHOOSE_WHAT_YOU_WANT_TO_UNSUBSCRIBE = "Выберите от чего Вы хотите отписаться:";
     private static final String YOUR_DISTRICTS = "Ваши районы:";
     private static final String YOUR_SUBSCRIPTIONS = "Ваши подписки:";
     private static final String CHOOSE_CONVENIENT_DISTRICTS = "Выберите удобные для Вас районы:";
@@ -240,7 +248,11 @@ public class MyBot extends TelegramLongPollingBot {
                 return;
             }
 
-            sendMessageToBot(WRITE_DRUG_NAME);
+            if (isAdminId()){
+                sendReplyKeyboardToBot(WRITE_DRUG_NAME, List.of(List.of("Юперио","Салтиказон")));
+            } else {
+                sendMessageToBot(WRITE_DRUG_NAME);
+            }
             lastCommand = FIND_DRUGS;
             return;
         }
@@ -309,6 +321,19 @@ public class MyBot extends TelegramLongPollingBot {
             lastCommand = STOP;
             return;
         }
+        if (text.equals(UNSUBSCRIBE)) {
+            proceedUnsubscribe();
+            lastCommand = UNSUBSCRIBE;
+            return;
+        }
+        if (lastCommand.equals(UNSUBSCRIBE) && text.equals(UNSUBSCRIBE_FROM_ALL)) {
+            proceedUserChooseUnsubscribe(text, true);
+            return;
+        }
+        if (lastCommand.equals(UNSUBSCRIBE) && subscriptionMap.containsKey(text)){
+            proceedUserChooseUnsubscribe(text, false);
+            return;
+        }
         if (text.equals(SEND_MESSAGE_TO_ALL_USERS) && isAdminId()) {
             sendMessageToBot(SEND_MESSAGE_THAT_WILL_SEND_TO_ALL_USERS);
             lastCommand = SEND_MESSAGE_TO_ALL_USERS;
@@ -320,6 +345,37 @@ public class MyBot extends TelegramLongPollingBot {
         }
 
         lastCommand = proceedJsonParserCommand(text);
+    }
+
+    private void proceedUnsubscribe() {
+        if (subscriptionMap.isEmpty()){
+            sendMessageToBot(YOU_ARE_NOT_HAVE_SUBSCRIPTIONS);
+            return;
+        }
+
+        ArrayList<List<String>> unsubscribeList = new ArrayList<>();
+        for (String key : subscriptionMap.keySet()) {
+            unsubscribeList.add(Collections.singletonList(key));
+        }
+        if (unsubscribeList.size() >= 2){
+            unsubscribeList.add(Collections.singletonList(UNSUBSCRIBE_FROM_ALL));
+        }
+        sendReplyKeyboardToBot(CHOOSE_WHAT_YOU_WANT_TO_UNSUBSCRIBE, unsubscribeList);
+    }
+
+    private void proceedUserChooseUnsubscribe(String text, boolean isUnsubscribeFromAll) {
+        if (isUnsubscribeFromAll) {
+            subscriptionMap.clear();
+        } else {
+            subscriptionMap.remove(text);
+        }
+
+        if (writeDataToJsonWithIdFile()) {
+            sendMessageToBot(YOU_UNSUBSCRIBE_SUCCESSFULLY);
+            sendSubscriptions(SubscriptionsEnum.SUBSCRIPTIONS_ONLY);
+        } else {
+            sendMessageToBot(ERROR_IN_UNSUBSCRIBE + TRY_NEXT_TIME);
+        }
     }
 
     private boolean isDistrictsSetEmpty() {
@@ -361,10 +417,10 @@ public class MyBot extends TelegramLongPollingBot {
     private void proceedChangeDistrict(String text) {
         if (districtsSet.contains(text)) {
             districtsSet.remove(text);
-            sendMessageToBot(YOU_UNSUBSCRIBE_SUCCESSFULLY);
+            sendMessageToBot(YOU_SUCCESSFULLY_REMOVED_DISTRICT);
         } else {
             districtsSet.add(text);
-            sendMessageToBot(YOU_SUBSCRIBE_SUCCESSFULLY);
+            sendMessageToBot(YOU_SUCCESSFULLY_ADDED_DISTRICT);
         }
         writeDataToJsonWithIdFile();
         sendSubscriptions(SubscriptionsEnum.DISTRICTS_ONLY);
@@ -772,9 +828,9 @@ public class MyBot extends TelegramLongPollingBot {
         writeDataToFile(new JSONObject().put(DATA_JSON_DECLARED_FIELDS[0].getName(), idsMap), dataJsonFile);
     }
 
-    private void writeDataToJsonWithIdFile() {
+    private boolean writeDataToJsonWithIdFile() {
         int i = 0;
-        writeDataToFile(new JSONObject()
+        return writeDataToFile(new JSONObject()
                         .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[i++].getName(), LocalDate.now())
                         .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[i++].getName(), userName)
                         .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[i++].getName(), districtsSet)
@@ -782,12 +838,14 @@ public class MyBot extends TelegramLongPollingBot {
                 , dataJsonWithIdFile);
     }
 
-    private void writeDataToFile(JSONObject jsonObject, File dataJsonFile) {
+    private boolean writeDataToFile(JSONObject jsonObject, File dataJsonFile) {
         try (PrintWriter out = new PrintWriter(dataJsonFile)) {
             out.write(jsonObject.toString());
         } catch (Exception e) {
             logger.log(Level.WARNING, MY_BOT_ERROR, " 10: " + e.getMessage());
+            return false;
         }
+        return true;
     }
 
     public String getBotUsername() {
