@@ -14,8 +14,12 @@ import java.util.logging.Logger;
 
 public class Main {
     private static final Logger logger = Logger.getLogger(Main.class.getName());
-    public static final String CONFIG_PROPERTIES = "config.properties";
-    public static final String DATA_JSON = "data%s.json";
+    private static final String CONFIG_PROPERTIES = "config.properties";
+    protected static final String DATA_JSON = "data%s.json";
+    protected static final String PROPERTY_BOT_TOKEN = "botToken";
+    protected static final String PROPERTY_BOT_USERNAME = "botUsername";
+    protected static final String PROPERTY_PATH_TO_JSON_FROM_WEB = "pathToJsonFromWeb";
+    protected static final String PROPERTY_ADMIN_ID = "adminId";
 
     public static void main(String[] args) {
         logger.log(Level.INFO, "Starting bot...");
@@ -47,16 +51,17 @@ public class Main {
                 shutdownJar();
             }
 
-            String botToken = properties.getProperty("botToken");
-            String botUsername = properties.getProperty("botUsername");
-            String pathToJsonFromWeb = properties.getProperty("pathToJsonFromWeb");
+            String botUsername = properties.getProperty(PROPERTY_BOT_USERNAME);
 
-            if (botToken.isEmpty() || botUsername.isEmpty() || pathToJsonFromWeb.isEmpty()) {
+            if (properties.getProperty(PROPERTY_BOT_TOKEN).isEmpty()
+                    || botUsername.isEmpty()
+                    || properties.getProperty(PROPERTY_PATH_TO_JSON_FROM_WEB).isEmpty()
+                    || properties.getProperty(PROPERTY_ADMIN_ID).isEmpty()) {
                 logger.log(Level.WARNING, "Main Error 5: Any of properties is EMPTY!");
                 return;
             }
 
-            MyBot bot = new MyBot(botToken, botUsername, pathToJsonFromWeb, dataJsonFile, logger);
+            MyBot bot = new MyBot(properties, dataJsonFile, logger);
             if (bot.isGlobalError()) {
                 logger.log(Level.WARNING, "Main Error 6: Bot {0} started with error!", botUsername);
                 shutdownJar();
