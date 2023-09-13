@@ -59,6 +59,7 @@ public class MyBot extends TelegramLongPollingBot {
     private static final String UNSUBSCRIBE = "/unsubscribe";
     private static final String UNSUBSCRIBE_FROM_ALL = "Отписаться от всего";
     private static final String SEND_MESSAGE_TO_ALL_USERS = "/smtau";
+    private static final String SEND_MESSAGE_TO_ALL_USERS_BOT_UPDATED = "/smtaubu";
     private static final String PROCEED_USER_CHOOSE_FIND_DRUGS = "/proceed_user_choose_find_drugs";
     private static final String PROCEED_USER_CHOOSE_BENEFITS = "/proceed_user_choose_benefits";
     private static final String PROCEED_JSON_PARSER = "/proceed_json_parser";
@@ -332,6 +333,11 @@ public class MyBot extends TelegramLongPollingBot {
         }
         if (lastCommand.equals(UNSUBSCRIBE) && subscriptionMap.containsKey(text)){
             proceedUserChooseUnsubscribe(text, false);
+            return;
+        }
+        if (text.equals(SEND_MESSAGE_TO_ALL_USERS_BOT_UPDATED) && isAdminId()) {
+            sendMessageToAllUsers("Бот обновлен! Попробуйте новый функционал");
+            lastCommand = SEND_MESSAGE_TO_ALL_USERS_BOT_UPDATED;
             return;
         }
         if (text.equals(SEND_MESSAGE_TO_ALL_USERS) && isAdminId()) {
@@ -694,7 +700,7 @@ public class MyBot extends TelegramLongPollingBot {
 
     private void sendMessageToAllUsers(String text) {
         SendMessage message = new SendMessage();
-//        message.setReplyMarkup(new ReplyKeyboardRemove(true));
+        message.setReplyMarkup(new ReplyKeyboardRemove(true));
         for (Map.Entry<Long, Boolean> entry : idsMap.entrySet()) {
             if (Boolean.TRUE.equals(entry.getValue())) {
                 message.setChatId(entry.getKey());
