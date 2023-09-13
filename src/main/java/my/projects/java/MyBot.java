@@ -21,6 +21,9 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.logging.Level;
@@ -29,7 +32,6 @@ import java.util.logging.Logger;
 import static my.projects.java.Main.*;
 
 public class MyBot extends TelegramLongPollingBot {
-    private final Logger logger;
     private final String botToken;
     private final String botUsername;
     private final String pathToJsonFromWeb;
@@ -70,7 +72,7 @@ public class MyBot extends TelegramLongPollingBot {
     private static final String FINDING_DRUG = "Поиск лекарства...";
     private static final String SUBSCRIBE = "Подписаться";
     private static final String EXIT_TO_MENU = "Выйти в меню";
-    private static final String GET_DATA_FROM = "Get data from: {0}";
+    private static final String GET_DATA_FROM = "Get data from: ";
     private static final String BOT_S_STARTED = "Бот%s запущен!";
     private static final String BOT_S_STOPPED = "Бот%s остановлен!";
     private static final String ALREADY = SPACE + "уже";
@@ -147,28 +149,27 @@ public class MyBot extends TelegramLongPollingBot {
         }
     }
 
-    public MyBot(Properties properties, File dataJsonFile, Logger logger) {
+    public MyBot(Properties properties, File dataJsonFile) {
         this.botToken = properties.getProperty(PROPERTY_BOT_TOKEN);
         this.botUsername = properties.getProperty(PROPERTY_BOT_USERNAME);
         this.pathToJsonFromWeb = properties.getProperty(PROPERTY_PATH_TO_JSON_FROM_WEB);
         this.adminId = Integer.parseInt(properties.getProperty(PROPERTY_ADMIN_ID));
         this.dataJsonFile = dataJsonFile;
-        this.logger = logger;
         this.lastCommand = StringUtils.EMPTY;
 
         long startTime = System.nanoTime();
 
         if (!getDataFromJsonFile(false)) {
-            logger.log(Level.WARNING, MY_BOT_ERROR, " 1: Error in create dataJson file!");
+            printToLog(MY_BOT_ERROR + " 1: Error in create dataJson file!");
             globalError = true;
         }
 
-        logger.log(Level.INFO, "Start duration, ms: {0}", (System.nanoTime() - startTime) / 1000000);
+        printToLog(String.format("Start duration, ms: %s", (System.nanoTime() - startTime) / 1000000));
     }
 
     public void onUpdateReceived(Update update) {
         if (globalError) {
-            logger.log(Level.WARNING, MY_BOT_ERROR, " 2: Global error!");
+            printToLog(MY_BOT_ERROR + " 2: Global error!");
             return;
         }
 
@@ -177,14 +178,14 @@ public class MyBot extends TelegramLongPollingBot {
         if (update.hasMessage() && update.getMessage().hasText()) {
             Message message = update.getMessage();
             if (!message.hasText()) {
-                logger.log(Level.WARNING, MY_BOT_ERROR, " 3: Message is EMPTY!");
+                printToLog(MY_BOT_ERROR + " 3: Message is EMPTY!");
                 return;
             }
 
             messageProcessing(message);
         }
 
-        logger.log(Level.INFO, "Duration, ms: {0}", (System.nanoTime() - startTime) / 1000000);
+        printToLog(String.format("Duration, ms: %s", (System.nanoTime() - startTime) / 1000000));
     }
 
     private void messageProcessing(Message message) {
@@ -193,14 +194,14 @@ public class MyBot extends TelegramLongPollingBot {
         String text = message.getText();
 
         if (text.isEmpty()) {
-            logger.log(Level.WARNING, MY_BOT_ERROR, " 4: Message is EMPTY!");
+            printToLog(MY_BOT_ERROR + " 4: Message is EMPTY!");
             return;
         }
 
-        logger.log(Level.INFO, String.format("User id: %s sent: %s", chatId, text));
+        printToLog(String.format("User id: %s sent: %s", chatId, text));
 
         if (!idsMap.containsKey(chatId) || (idsMap.containsKey(chatId) && !idsMap.get(chatId))) {
-            logger.log(Level.INFO, "Bot status: stopped");
+            printToLog("Bot status: stopped");
             if (!text.equals(START)) {
                 text = STOP;
             }
@@ -565,7 +566,7 @@ public class MyBot extends TelegramLongPollingBot {
     }
 
     private Map<String, Map<String, ArrayList<DistrictsDTO>>> getLastMapByDrugInWeb(String drug) {
-        return new JsonWebParser(logger).findDrugFromWeb(this, drug);
+        return new JsonWebParser().findDrugFromWeb(this, drug);
     }
 
     private boolean sendFoundedDrugsToBot() {
@@ -720,7 +721,7 @@ public class MyBot extends TelegramLongPollingBot {
         try {
             execute(message);
         } catch (TelegramApiException e) {
-            logger.log(Level.WARNING, MY_BOT_ERROR, " 6: " + e.getMessage());
+            printToLog(MY_BOT_ERROR + " 6: " + e.getMessage());
         }
     }
 
@@ -728,11 +729,11 @@ public class MyBot extends TelegramLongPollingBot {
         sendMessage.setChatId(chatId);
 
         File file;
-        String fileName = String.format(DATA_JSON, chatId);
+        String dataJsonWithIdFileName = DATA_JSON_FILES_FOLDER_NAME + File.separator + String.format(DATA_JSON, chatId);
         try {
-            file = findOrCreateFile(fileName);
+            file = findOrCreateFile(dataJsonWithIdFileName);
         } catch (IOException e) {
-            logger.log(Level.WARNING, MY_BOT_ERROR, String.format(" 5: Error reading %s: %s", fileName, e.getMessage()));
+            printToLog(MY_BOT_ERROR + String.format(" 5: Error reading %s: %s", dataJsonWithIdFileName, e.getMessage()));
             return false;
         }
         if (!file.exists()) {
@@ -752,11 +753,11 @@ public class MyBot extends TelegramLongPollingBot {
             file = this.dataJsonWithIdFile;
         }
 
-        logger.log(Level.INFO, GET_DATA_FROM, file);
+        printToLog(GET_DATA_FROM + file);
         try {
             JSONObject dataJson = getJSONObjectFromFile(file);
             if (dataJson == null) {
-                logger.log(Level.WARNING, MY_BOT_ERROR, " 7: JsonObject dataJson null");
+                printToLog(MY_BOT_ERROR + " 7: JsonObject dataJson null");
                 return false;
             }
 
@@ -768,7 +769,7 @@ public class MyBot extends TelegramLongPollingBot {
 
             return true;
         } catch (IOException e) {
-            logger.log(Level.WARNING, MY_BOT_ERROR, " 8: " + e.getMessage());
+            printToLog(MY_BOT_ERROR + " 8: " + e.getMessage());
             return false;
         }
     }
@@ -807,7 +808,7 @@ public class MyBot extends TelegramLongPollingBot {
         JSONObject dataJson;
         try {
             if (!myJson.hasNext()) {
-                logger.log(Level.INFO, "Empty json file: {0}", file);
+                printToLog(String.format("Empty json file: %s", file));
                 if (file.equals(dataJsonFile)) {
                     writeDataToFile();
                 } else {
@@ -816,7 +817,7 @@ public class MyBot extends TelegramLongPollingBot {
 
                 myJson = new Scanner(file);
                 if (!myJson.hasNext()) {
-                    logger.log(Level.WARNING, MY_BOT_ERROR, " 9: Json file still empty: " + file);
+                    printToLog(MY_BOT_ERROR + " 9: Json file still empty: " + file);
                     myJson.close();
                     return null;
                 }
@@ -848,10 +849,20 @@ public class MyBot extends TelegramLongPollingBot {
         try (PrintWriter out = new PrintWriter(dataJsonFile)) {
             out.write(jsonObject.toString());
         } catch (Exception e) {
-            logger.log(Level.WARNING, MY_BOT_ERROR, " 10: " + e.getMessage());
+            printToLog(MY_BOT_ERROR + " 10: " + e.getMessage());
             return false;
         }
         return true;
+    }
+
+    private static File findOrCreateFile(String fileName) throws IOException {
+        File file = new File(fileName);
+        if (file.createNewFile()){
+            printToLog(String.format("File %s created", file.getAbsolutePath()));
+        } else {
+            printToLog(String.format("File %s found successfully", file.getAbsolutePath()));
+        }
+        return file;
     }
 
     public String getBotUsername() {
