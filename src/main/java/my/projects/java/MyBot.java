@@ -57,6 +57,7 @@ public class MyBot extends TelegramLongPollingBot {
     private static final String MY_SUBSCRIPTIONS = "/my_subscriptions";
     private static final String CHANGE_DISTRICTS = "/change_districts";
     private static final String FIND_DRUGS = "/find_drugs";
+    private static final String SEND_MESSAGE_TO_ALL_USERS = "/smtau";
     private static final String PROCEED_USER_CHOOSE_FIND_DRUGS = "/proceed_user_choose_find_drugs";
     private static final String PROCEED_USER_CHOOSE_BENEFITS = "/proceed_user_choose_benefits";
     private static final String PROCEED_JSON_PARSER = "/proceed_json_parser";
