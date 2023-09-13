@@ -29,7 +29,6 @@ import java.util.logging.Logger;
 import static my.projects.java.Main.*;
 
 public class MyBot extends TelegramLongPollingBot {
-    private static final String SEND_MESSAGE_THAT_WILL_SEND_TO_ALL_USERS = "Введите сообщение, которое отправится всем пользователям:";
     private final Logger logger;
     private final String botToken;
     private final String botUsername;
@@ -81,6 +80,7 @@ public class MyBot extends TelegramLongPollingBot {
     private static final String EMPTY_OR_YOU_ALREADY_HAVE_IT = "Пусто! Либо то, что вы ищите уже у вас в подписках";
     private static final String YOU_SUBSCRIBE_SUCCESSFULLY = "Вы успешно подписались!";
     private static final String YOU_UNSUBSCRIBE_SUCCESSFULLY = "Вы успешно отписались!";
+    private static final String SEND_MESSAGE_THAT_WILL_SEND_TO_ALL_USERS = "Введите сообщение, которое отправится всем пользователям:";
     private static final String YOUR_DISTRICTS = "Ваши районы:";
     private static final String YOUR_SUBSCRIPTIONS = "Ваши подписки:";
     private static final String CHOOSE_CONVENIENT_DISTRICTS = "Выберите удобные для Вас районы:";
