@@ -1,5 +1,6 @@
 package my.projects.java;
 
+import org.apache.commons.lang3.StringUtils;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
@@ -8,46 +9,48 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.time.LocalDate;
+import java.util.Calendar;
 import java.util.Properties;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.Scanner;
 
 public class Main {
-    private static final Logger logger = Logger.getLogger(Main.class.getName());
+    private static final String LOG_FILES_FOLDER_NAME = "logs";
+    protected static final String DATA_JSON_FILES_FOLDER_NAME = "data files";
+    private static final String LOG_FILE_PATTERN = "log_%s.txt";
+    private static String logFilePath;
+    private static String logMessage = StringUtils.EMPTY;
+    private static String absolutePath =
+            new File(Main.class.getProtectionDomain().getCodeSource().getLocation().getPath()).getParentFile().getPath();
+    private static final String ERROR_FILE_NOT_FOUND = "Error: File %s not found";
     private static final String CONFIG_PROPERTIES = "config.properties";
     protected static final String DATA_JSON = "data%s.json";
     protected static final String PROPERTY_BOT_TOKEN = "botToken";
     protected static final String PROPERTY_BOT_USERNAME = "botUsername";
     protected static final String PROPERTY_PATH_TO_JSON_FROM_WEB = "pathToJsonFromWeb";
     protected static final String PROPERTY_ADMIN_ID = "adminId";
+    private static final String STOP = "stop";
 
     public static void main(String[] args) {
-        logger.log(Level.INFO, "Starting bot...");
-        File dataJsonFile = null;
-        String fileName = String.format(DATA_JSON, "");
-        try {
-            dataJsonFile = findOrCreateFile(fileName);
-        } catch (IOException e) {
-            logger.log(Level.WARNING, String.format("Main Error 1: Error reading %s: %s", fileName, e.getMessage()));
-            shutdownJar();
-        }
+        System.setProperty("file.encoding", "UTF-8");
 
-        if (dataJsonFile == null || !dataJsonFile.exists()) {
-            logger.log(Level.WARNING, "Main Error 2: {0} still not exist", CONFIG_PROPERTIES);
-            shutdownJar();
-        }
+        checkAbsolutePath();
+        File configFile = checkConfigFile();
+        checkLogFile();
+        File dataJsonFile = checkDataJsonFile();
 
-        File configFile = new File(CONFIG_PROPERTIES);
-        if (!configFile.exists()){
-            logger.log(Level.WARNING, "Main Error 3: File {0} not found", CONFIG_PROPERTIES);
-            shutdownJar();
-        }
+        printToLogFirst("Absolute path: " + absolutePath + System.lineSeparator() + logMessage.trim());
 
-        try(InputStream configStream = new FileInputStream(configFile)){
+        startConsoleHandler();
+
+        try (InputStream configStream = new FileInputStream(configFile)) {
             Properties properties = new Properties();
             properties.load(configStream);
             if (properties.isEmpty()) {
-                logger.log(Level.WARNING, "Main Error 4: Properties is EMPTY!");
+                printToLog("Main Error 4: Properties is EMPTY!");
                 shutdownJar();
             }
 
@@ -57,38 +60,134 @@ public class Main {
                     || botUsername.isEmpty()
                     || properties.getProperty(PROPERTY_PATH_TO_JSON_FROM_WEB).isEmpty()
                     || properties.getProperty(PROPERTY_ADMIN_ID).isEmpty()) {
-                logger.log(Level.WARNING, "Main Error 5: Any of properties is EMPTY!");
+                printToLog(String.format("Error: Any of properties is EMPTY! Properties names: %s, %s, %s, %s",
+                        PROPERTY_BOT_TOKEN, PROPERTY_BOT_USERNAME, PROPERTY_PATH_TO_JSON_FROM_WEB, PROPERTY_ADMIN_ID));
                 return;
             }
 
-            MyBot bot = new MyBot(properties, dataJsonFile, logger);
+            MyBot bot = new MyBot(properties, dataJsonFile);
             if (bot.isGlobalError()) {
-                logger.log(Level.WARNING, "Main Error 6: Bot {0} started with error!", botUsername);
+                printToLog(String.format("Main Error 6: Bot %s started with error!", botUsername));
                 shutdownJar();
             }
 
             TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
             botsApi.registerBot(bot);
-            logger.log(Level.INFO, "Bot {0} started successfully!", botUsername);
-        } catch (IOException | TelegramApiException e){
-            logger.log(Level.WARNING, String.format("Main Error 7: Error reading %s: %s", CONFIG_PROPERTIES, e.getMessage()));
+            printToLog(String.format("Bot %s started successfully!", botUsername));
+        } catch (IOException | TelegramApiException e) {
+            printToLog(String.format("Main Error 7: Error reading %s: %s", CONFIG_PROPERTIES, e.getMessage()));
         }
-
-//        logger.log(Level.INFO, "Bot finished");
     }
 
-    protected static File findOrCreateFile(String fileName) throws IOException {
-        File file = new File(fileName);
-        if (file.createNewFile()){
-            logger.log(Level.INFO, "File {0} created", file.getAbsolutePath());
-        } else {
-            logger.log(Level.INFO, "File {0} found successfully", file.getAbsolutePath());
+    private static void checkAbsolutePath() {
+        if (absolutePath.endsWith("\\target")) {
+            absolutePath = absolutePath.replace("\\target", "") + File.separator;
         }
-        return file;
+
+        absolutePath += File.separator;
+    }
+
+    private static File checkConfigFile() {
+        File configFile = new File(absolutePath + CONFIG_PROPERTIES);
+        printToConsoleAndAddToLog("Config file absolute path: " + configFile.getAbsolutePath());
+        if (!configFile.exists()) {
+            System.out.println(String.format(ERROR_FILE_NOT_FOUND, configFile.getAbsolutePath()));
+            shutdownJar();
+        }
+        return configFile;
+    }
+
+    private static void checkLogFile() {
+        File logFilesFolder = new File(absolutePath + LOG_FILES_FOLDER_NAME);
+        if (!logFilesFolder.exists()) {
+            printToConsoleAndAddToLog("Log files folder created: " + logFilesFolder.mkdirs());
+        }
+
+        logFilePath = logFilesFolder.getAbsolutePath() + File.separator + String.format(LOG_FILE_PATTERN, LocalDate.now());
+        File logFile = new File(logFilePath);
+        try {
+            if (!logFile.exists()) {
+                printToConsoleAndAddToLog("Log file created: " + logFile.createNewFile());
+            }
+            printToConsoleAndAddToLog("Log file absolute path: " + logFile.getAbsolutePath());
+            if (!logFile.exists()) {
+                throw new IOException(String.format(ERROR_FILE_NOT_FOUND, logFile.getAbsolutePath()));
+            }
+        } catch (IOException e) {
+            System.out.println("Error: " + e.getMessage());
+            shutdownJar();
+        }
+    }
+
+    private static File checkDataJsonFile() {
+        File dataJsonFilesFolder = new File(absolutePath + DATA_JSON_FILES_FOLDER_NAME);
+        if (!dataJsonFilesFolder.exists()) {
+            printToConsoleAndAddToLog("Data json files folder created: " + dataJsonFilesFolder.mkdirs());
+        }
+
+        File dataJsonFile = new File(dataJsonFilesFolder.getAbsolutePath() + File.separator + String.format(DATA_JSON, ""));
+        try {
+            if (!dataJsonFile.exists()) {
+                printToConsoleAndAddToLog("Data json file created: " + dataJsonFile.createNewFile());
+            }
+            printToConsoleAndAddToLog("Data json file absolute path: " + dataJsonFile.getAbsolutePath());
+            if (!dataJsonFile.exists()) {
+                throw new IOException(String.format(ERROR_FILE_NOT_FOUND, dataJsonFile.getAbsolutePath()));
+            }
+        } catch (IOException e) {
+            System.out.println("Error: " + e.getMessage());
+            shutdownJar();
+        }
+        return dataJsonFile;
+    }
+
+    private static void startConsoleHandler() {
+        Thread waitingThread = new Thread(() -> {
+            printToLog("Console handler started. Write 'stop' in console to stop jar. Waiting for input...");
+            Scanner scanner = new Scanner(System.in);
+            String input;
+            while (!(input = scanner.nextLine()).equalsIgnoreCase(STOP)) {
+                printToLog(String.format("Received: '%s'. Write 'stop' in console to stop jar", input));
+            }
+            printToLog("Stop command received. Exiting...");
+            shutdownJar();
+        });
+
+        waitingThread.start();
+    }
+
+    private static void printToLogFirst(String text) {
+        printToLog(text, false, true);
+    }
+
+    protected static void printToLog(String text) {
+        printToLog(text, true, false);
+    }
+
+    private static void printToLog(String text, boolean isPrintToConsole, boolean isFirstPrint) {
+        try {
+            String logText = Calendar.getInstance().getTime() + " " + text;
+            if (isFirstPrint) {
+                logText = System.lineSeparator() + "----------Java started----------" + System.lineSeparator() + logText;
+            }
+            if (isPrintToConsole) {
+                System.out.println(logText);
+            }
+            logText += System.lineSeparator();
+            Files.write(Paths.get(logFilePath), logText.getBytes(), StandardOpenOption.APPEND);
+        } catch (IOException e) {
+            System.out.println("Error: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void printToConsoleAndAddToLog(String logMessageLog) {
+        System.out.println(logMessageLog);
+        logMessage += logMessageLog + System.lineSeparator();
     }
 
     private static void shutdownJar() {
-        logger.log(Level.INFO, "System exit");
+        printToLog("System exit");
         System.exit(0);
     }
 }
