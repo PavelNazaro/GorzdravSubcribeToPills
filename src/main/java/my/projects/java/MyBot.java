@@ -26,10 +26,10 @@ import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static my.projects.java.Main.DATA_JSON;
-import static my.projects.java.Main.findOrCreateFile;
+import static my.projects.java.Main.*;
 
 public class MyBot extends TelegramLongPollingBot {
+    private static final String SEND_MESSAGE_THAT_WILL_SEND_TO_ALL_USERS = "Введите сообщение, которое отправится всем пользователям:";
     private final Logger logger;
     private final String botToken;
     private final String botUsername;
@@ -38,6 +38,7 @@ public class MyBot extends TelegramLongPollingBot {
     private File dataJsonWithIdFile;
     private Map<Long, Boolean> idsMap;
     private long chatId;
+    private final int adminId;
     private String lastDay;
     private Map<String, Map<String, ArrayList<DistrictsDTO>>> lastMap;
     private Map<String, String> subscriptionMap;// drugName/benefit
@@ -136,10 +137,11 @@ public class MyBot extends TelegramLongPollingBot {
         }
     }
 
-    public MyBot(String botToken, String botUsername, String pathToJsonFromWeb, File dataJsonFile, Logger logger) {
-        this.botToken = botToken;
-        this.botUsername = botUsername;
-        this.pathToJsonFromWeb = pathToJsonFromWeb;
+    public MyBot(Properties properties, File dataJsonFile, Logger logger) {
+        this.botToken = properties.getProperty(PROPERTY_BOT_TOKEN);
+        this.botUsername = properties.getProperty(PROPERTY_BOT_USERNAME);
+        this.pathToJsonFromWeb = properties.getProperty(PROPERTY_PATH_TO_JSON_FROM_WEB);
+        this.adminId = Integer.parseInt(properties.getProperty(PROPERTY_ADMIN_ID));
         this.dataJsonFile = dataJsonFile;
         this.logger = logger;
         this.lastCommand = StringUtils.EMPTY;
@@ -301,9 +303,18 @@ public class MyBot extends TelegramLongPollingBot {
             sendFoundedDrugsToBot();
             return;
         }
-        if (text.equals(STOP)) {
+        if (text.equals(STOP) && isAdminId()) {
             proceedStopCommand();
             lastCommand = STOP;
+            return;
+        }
+        if (text.equals(SEND_MESSAGE_TO_ALL_USERS) && isAdminId()) {
+            sendMessageToBot(SEND_MESSAGE_THAT_WILL_SEND_TO_ALL_USERS);
+            lastCommand = SEND_MESSAGE_TO_ALL_USERS;
+            return;
+        }
+        if (lastCommand.equals(SEND_MESSAGE_TO_ALL_USERS) && isAdminId()) {
+            sendMessageToAllUsers(text);
             return;
         }
 
@@ -513,11 +524,6 @@ public class MyBot extends TelegramLongPollingBot {
         return true;
     }
 
-    protected void sendMessageToBot(String text) {
-        sendMessage.setReplyMarkup(new ReplyKeyboardRemove(true));
-        sendMessage(text);
-    }
-
     protected void sendDistrictsToBot() {
         List<List<String>> rows = new ArrayList<>();
         rows.add(List.of(END_OF_CHOOSE, REMOVE_ALL_DISTRICTS, CHOOSE_ALL_DISTRICTS));
@@ -605,7 +611,7 @@ public class MyBot extends TelegramLongPollingBot {
         replyKeyboardMarkup.setKeyboard(rows);
 
         sendMessage.setReplyMarkup(replyKeyboardMarkup);
-        sendMessage(text);
+        sendMessage(text, sendMessage);
     }
 
     private void sendInlineKeyboardToBot(String text, List<List<String>> buttonNamesList) {
@@ -626,14 +632,30 @@ public class MyBot extends TelegramLongPollingBot {
         inlineKeyboardMarkup.setKeyboard(rows);
 
         sendMessage.setReplyMarkup(inlineKeyboardMarkup);
-        sendMessage(text);
+        sendMessage(text, sendMessage);
     }
 
-    private void sendMessage(String text) {
-        sendMessage.setText(text);
+    private void sendMessageToAllUsers(String text) {
+        SendMessage message = new SendMessage();
+//        message.setReplyMarkup(new ReplyKeyboardRemove(true));
+        for (Map.Entry<Long, Boolean> entry : idsMap.entrySet()) {
+            if (Boolean.TRUE.equals(entry.getValue())) {
+                message.setChatId(entry.getKey());
+                sendMessage(text, message);
+            }
+        }
+    }
+
+    protected void sendMessageToBot(String text) {
+        sendMessage.setReplyMarkup(new ReplyKeyboardRemove(true));
+        sendMessage(text, sendMessage);
+    }
+
+    private void sendMessage(String text, SendMessage message) {
+        message.setText(text);
 
         try {
-            execute(sendMessage);
+            execute(message);
         } catch (TelegramApiException e) {
             logger.log(Level.WARNING, MY_BOT_ERROR, " 6: " + e.getMessage());
         }
@@ -785,5 +807,9 @@ public class MyBot extends TelegramLongPollingBot {
 
     public String getPathToJsonFromWeb() {
         return pathToJsonFromWeb;
+    }
+
+    private boolean isAdminId() {
+        return chatId == adminId;
     }
 }
