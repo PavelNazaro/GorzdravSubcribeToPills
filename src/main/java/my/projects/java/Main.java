@@ -186,7 +186,7 @@ public class Main {
         logMessage += logMessageLog + System.lineSeparator();
     }
 
-    private static void shutdownJar() {
+    protected static void shutdownJar() {
         printToLog("System exit");
         System.exit(0);
     }
