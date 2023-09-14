@@ -21,13 +21,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Field;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.time.LocalDate;
 import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import static my.projects.java.Main.*;
 
@@ -39,7 +34,7 @@ public class MyBot extends TelegramLongPollingBot {
     private File dataJsonWithIdFile;
     private Map<Long, Boolean> idsMap;
     private long chatId;
-    private final int adminId;
+    private final long adminId;
     private String lastDay;
     private Map<String, Map<String, ArrayList<DistrictsDTO>>> lastMap;
     private Map<String, String> subscriptionMap;// drugName/benefit
@@ -55,6 +50,7 @@ public class MyBot extends TelegramLongPollingBot {
 
     private static final String START = "/start";
     private static final String STOP = "/stop";
+    private static final String STOP_BOT = "/stop_bot";
     private static final String MY_SUBSCRIPTIONS = "/my_subscriptions";
     private static final String CHANGE_DISTRICTS = "/change_districts";
     private static final String FIND_DRUGS = "/find_drugs";
@@ -78,8 +74,8 @@ public class MyBot extends TelegramLongPollingBot {
     private static final String ALREADY = SPACE + "уже";
     private static final String BOT_STARTED = String.format(BOT_S_STARTED, StringUtils.EMPTY);
     private static final String BOT_STOPPED = String.format(BOT_S_STOPPED, StringUtils.EMPTY);
-    private static final String BOT_ALREADY_STARTED = String.format(BOT_STARTED, ALREADY);
-    private static final String BOT_ALREADY_STOPPED = String.format(BOT_STOPPED, ALREADY);
+    private static final String BOT_ALREADY_STARTED = String.format(BOT_S_STARTED, ALREADY);
+    private static final String BOT_ALREADY_STOPPED = String.format(BOT_S_STOPPED, ALREADY);
     private static final String END_OF_CHOOSE = "Завершить выбор";
     private static final String CHOOSE_A_DRUG = "Выберите лекарство:";
     private static final String EMPTY_OR_YOU_ALREADY_HAVE_IT = "Пусто! Либо то, что вы ищите уже у вас в подписках";
@@ -153,7 +149,7 @@ public class MyBot extends TelegramLongPollingBot {
         this.botToken = properties.getProperty(PROPERTY_BOT_TOKEN);
         this.botUsername = properties.getProperty(PROPERTY_BOT_USERNAME);
         this.pathToJsonFromWeb = properties.getProperty(PROPERTY_PATH_TO_JSON_FROM_WEB);
-        this.adminId = Integer.parseInt(properties.getProperty(PROPERTY_ADMIN_ID));
+        this.adminId = Long.parseLong(properties.getProperty(PROPERTY_ADMIN_ID));
         this.dataJsonFile = dataJsonFile;
         this.lastCommand = StringUtils.EMPTY;
 
@@ -250,8 +246,8 @@ public class MyBot extends TelegramLongPollingBot {
                 return;
             }
 
-            if (isAdminId()){
-                sendReplyKeyboardToBot(WRITE_DRUG_NAME, List.of(List.of("Юперио","Салтиказон")));
+            if (isAdminId()) {
+                sendReplyKeyboardToBot(WRITE_DRUG_NAME, List.of(List.of("Юперио", "Салтиказон")));
             } else {
                 sendMessageToBot(WRITE_DRUG_NAME);
             }
@@ -318,9 +314,12 @@ public class MyBot extends TelegramLongPollingBot {
             sendFoundedDrugsToBot();
             return;
         }
-        if (text.equals(STOP) && isAdminId()) {
+        if (text.equals(STOP_BOT) && isAdminId()) {
+            printToLog("Stop command received. Exiting...");
+            shutdownJar();
+        }
+        if (text.equals(STOP)) {
             proceedStopCommand();
-            lastCommand = STOP;
             return;
         }
         if (text.equals(UNSUBSCRIBE)) {
@@ -332,7 +331,7 @@ public class MyBot extends TelegramLongPollingBot {
             proceedUserChooseUnsubscribe(text, true);
             return;
         }
-        if (lastCommand.equals(UNSUBSCRIBE) && subscriptionMap.containsKey(text)){
+        if (lastCommand.equals(UNSUBSCRIBE) && subscriptionMap.containsKey(text)) {
             proceedUserChooseUnsubscribe(text, false);
             return;
         }
@@ -355,7 +354,7 @@ public class MyBot extends TelegramLongPollingBot {
     }
 
     private void proceedUnsubscribe() {
-        if (subscriptionMap.isEmpty()){
+        if (subscriptionMap.isEmpty()) {
             sendMessageToBot(YOU_ARE_NOT_HAVE_SUBSCRIPTIONS);
             return;
         }
@@ -364,7 +363,7 @@ public class MyBot extends TelegramLongPollingBot {
         for (String key : subscriptionMap.keySet()) {
             unsubscribeList.add(Collections.singletonList(key));
         }
-        if (unsubscribeList.size() >= 2){
+        if (unsubscribeList.size() >= 2) {
             unsubscribeList.add(Collections.singletonList(UNSUBSCRIBE_FROM_ALL));
         }
         sendReplyKeyboardToBot(CHOOSE_WHAT_YOU_WANT_TO_UNSUBSCRIBE, unsubscribeList);
@@ -399,13 +398,14 @@ public class MyBot extends TelegramLongPollingBot {
             sendMessageToBot(BOT_ALREADY_STARTED);
         } else {
             sendMessageToBot(BOT_STARTED);
-            if (!idsMap.containsKey(chatId)){
+            if (!idsMap.containsKey(chatId)) {
                 sendMessageToBot("Вас приветствует неоффициальный бот по поиску лекарств от Горздрава!" + LINE_SEPARATOR +
                         LINE_SEPARATOR +
                         "Бот создан не только для поиска лекарств в наличии, а также для подписки на них, если лекарства не оказалось в наличии в аптеках Санкт-Петербурга. Для начала выберите удобный(е) для вас район(ы) в котором бот будет искать наличие лекарств для Вас. Для завершения выбора районов, используйте кнопку с сответствующим названием. Далее вы сможете искать лекарства и их наличие, а также подписаться на уведомления." + LINE_SEPARATOR +
                         LINE_SEPARATOR +
                         "Пожалуйста, пользуйтесь всплывающим блоком кнопок, которые сделаны для Вашего максимального удобства и быстрого управления" + LINE_SEPARATOR +
                         "Бот бесплатен!");
+                sendMessageToAdmin(String.format("User %s just joined to %s", userName, botUsername));
             }
             idsMap.put(chatId, true);
             writeDataToJsonWithIdFile();
@@ -523,13 +523,17 @@ public class MyBot extends TelegramLongPollingBot {
     }
 
     private void proceedStopCommand() {
-        if (idsMap.containsKey(chatId) && !idsMap.get(chatId)) {
-            sendMessageToBot(BOT_ALREADY_STOPPED);
+        if (idsMap.containsKey(chatId)) {
+            if (Boolean.TRUE.equals(idsMap.get(chatId))) {
+                sendMessageToBot(BOT_STOPPED);
+            } else {
+                sendMessageToBot(BOT_ALREADY_STOPPED);
+            }
             sendMessageToBot(INFO_START);
-            return;
+            lastCommand = STOP;
         } else {
-            sendMessageToBot(BOT_STOPPED);
-            sendMessageToBot(INFO_START);
+            proceedStartCommand();
+            return;
         }
 
         idsMap.put(chatId, false);
@@ -559,7 +563,7 @@ public class MyBot extends TelegramLongPollingBot {
         }
 
         sendMessageToBot(FINDING_DRUG);
-        if(sendFoundedDrugsToBot()) {
+        if (sendFoundedDrugsToBot()) {
             return PROCEED_JSON_PARSER;
         }
         return text;
@@ -650,7 +654,7 @@ public class MyBot extends TelegramLongPollingBot {
     private List<List<String>> swapOneRowToRows(List<String> buttonNamesList) {
         List<List<String>> rows = new ArrayList<>();
 
-        for (String buttonName : buttonNamesList){
+        for (String buttonName : buttonNamesList) {
             rows.add(List.of(buttonName));
         }
 
@@ -708,6 +712,13 @@ public class MyBot extends TelegramLongPollingBot {
                 sendMessage(text, message);
             }
         }
+    }
+
+    private void sendMessageToAdmin(String text) {
+        SendMessage message = new SendMessage();
+        message.setReplyMarkup(new ReplyKeyboardRemove(true));
+        message.setChatId(adminId);
+        sendMessage(text, message);
     }
 
     protected void sendMessageToBot(String text) {
@@ -857,7 +868,7 @@ public class MyBot extends TelegramLongPollingBot {
 
     private static File findOrCreateFile(String fileName) throws IOException {
         File file = new File(fileName);
-        if (file.createNewFile()){
+        if (file.createNewFile()) {
             printToLog(String.format("File %s created", file.getAbsolutePath()));
         } else {
             printToLog(String.format("File %s found successfully", file.getAbsolutePath()));
