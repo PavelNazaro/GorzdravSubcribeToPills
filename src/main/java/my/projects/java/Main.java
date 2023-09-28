@@ -20,10 +20,12 @@ import java.util.Scanner;
 public class Main {
     private static final String LOG_FILES_FOLDER_NAME = "logs";
     protected static final String DATA_JSON_FILES_FOLDER_NAME = "data files";
-    private static final String LOG_FILE_PATTERN = "log_%s.txt";
+    private static final String LOG_FILE_START_PATTERN = "log_";
+    private static final String LOG_FILE_END_PATTERN = ".txt";
+    private static final String LOG_FILE_PATTERN = LOG_FILE_START_PATTERN + "%s" + LOG_FILE_END_PATTERN;
     private static String logFilePath;
     private static String logMessage = StringUtils.EMPTY;
-    private static String absolutePath =
+    protected static String absolutePath =
             new File(Main.class.getProtectionDomain().getCodeSource().getLocation().getPath()).getParentFile().getPath();
     private static final String ERROR_FILE_NOT_FOUND = "Error: File %s not found";
     private static final String CONFIG_PROPERTIES = "config.properties";
@@ -74,6 +76,8 @@ public class Main {
             TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
             botsApi.registerBot(bot);
             printToLog(String.format("Bot %s started successfully!", botUsername));
+
+            new MyTimer(bot);
         } catch (IOException | TelegramApiException e) {
             printToLog(String.format("Main Error 7: Error reading %s: %s", CONFIG_PROPERTIES, e.getMessage()));
         }
@@ -174,6 +178,8 @@ public class Main {
                 System.out.println(logText);
             }
             logText += System.lineSeparator();
+
+            checkLogFile();
             Files.write(Paths.get(logFilePath), logText.getBytes(), StandardOpenOption.APPEND);
         } catch (IOException e) {
             System.out.println("Error: " + e.getMessage());
