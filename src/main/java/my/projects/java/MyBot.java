@@ -778,20 +778,19 @@ public class MyBot extends TelegramLongPollingBot {
     }
 
     private void sendMessageToAllUsers(String text) {
-        SendMessage message = new SendMessage();
-        message.setReplyMarkup(new ReplyKeyboardRemove(true));
         for (Map.Entry<Long, Boolean> entry : idsMap.entrySet()) {
-            if (Boolean.TRUE.equals(entry.getValue())) {
-                message.setChatId(entry.getKey());
-                sendMessage(text, message);
-            }
+            sendMessageToCertainUser(text, entry.getKey());
         }
     }
 
     private void sendMessageToAdmin(String text) {
+        sendMessageToCertainUser(text, adminId);
+    }
+
+    private void sendMessageToCertainUser(String text, long chatId) {
         SendMessage message = new SendMessage();
         message.setReplyMarkup(new ReplyKeyboardRemove(true));
-        message.setChatId(adminId);
+        message.setChatId(chatId);
         sendMessage(text, message);
     }
 
