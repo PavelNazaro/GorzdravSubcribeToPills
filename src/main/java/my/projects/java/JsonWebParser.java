@@ -18,7 +18,7 @@ import java.util.logging.Logger;
 import static my.projects.java.Main.printToLog;
 
 public class JsonWebParser {
-    private static final String JSON_PARSER_ERROR = "JsonParser Error {0}";
+    private static final String JSON_PARSER_ERROR = "JsonParser Error";
     public static final int MAX_MESSAGE_LENGTH = 4096;
 
     public JsonWebParser() {
@@ -33,21 +33,21 @@ public class JsonWebParser {
         Map<String, Map<String, ArrayList<DistrictsDTO>>> mapMap = new LinkedHashMap<>();
 
         if (responseDTO == null) {
-            printToLog(JSON_PARSER_ERROR + "1: " + MyBot.RESPONSE_DTO_IS_NULL);
+            printToLog(JSON_PARSER_ERROR + " 1: " + MyBot.RESPONSE_DTO_IS_NULL);
             mapMap.put(MyBot.RESPONSE_DTO_IS_NULL, new HashMap<>());
             return mapMap;
         }
 
-        if (responseDTO.getResult().isEmpty()) {
-            printToLog(JSON_PARSER_ERROR + "2: " + MyBot.ERROR_IN_FIND_DRUGS);
-            mapMap.put(MyBot.ERROR_IN_FIND_DRUGS, new HashMap<>());
+
+        if (Boolean.FALSE.equals(responseDTO.getSuccess())) {
+            printToLog(JSON_PARSER_ERROR + " 2: " + MyBot.UNSUCCESSFUL_RESULT);
+            mapMap.put(MyBot.UNSUCCESSFUL_RESULT, new HashMap<>());
             return mapMap;
         }
 
-
-        if (!responseDTO.getSuccess()) {
-            printToLog(JSON_PARSER_ERROR + "3: " + MyBot.UNSUCCESSFUL_RESULT);
-            mapMap.put(MyBot.UNSUCCESSFUL_RESULT, new HashMap<>());
+        if (responseDTO.getResult().isEmpty()) {
+            printToLog(JSON_PARSER_ERROR + " 3: " + MyBot.ERROR_IN_FIND_DRUGS);
+            mapMap.put(MyBot.ERROR_IN_FIND_DRUGS, new HashMap<>());
             return mapMap;
         }
 

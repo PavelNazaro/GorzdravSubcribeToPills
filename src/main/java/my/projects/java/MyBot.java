@@ -16,11 +16,9 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.Keyboard
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -122,7 +120,7 @@ public class MyBot extends TelegramLongPollingBot {
     protected static final String UNSUCCESSFUL_RESULT = "Unsuccessful result";
     protected static final String ERROR_IN_FIND_DRUGS = "Error in find drugs";
     protected static final String RESPONSE_DTO_IS_NULL = "ResponseDTO is null";
-    private static final String MY_BOT_ERROR = "MyBot Error {0}";
+    private static final String MY_BOT_ERROR = "MyBot Error";
     private static final String DISTRICT = SPACE + "район";
     private static final List<String> districts = new ArrayList<>(List.of("Адмиралтейский" + DISTRICT, "Василеостровский" + DISTRICT, "Выборгский" + DISTRICT, "Калининский" + DISTRICT, "Кировский" + DISTRICT, "Колпинский" + DISTRICT, "Красногвардейский" + DISTRICT, "Красносельский" + DISTRICT, "Кронштадтcкий" + DISTRICT, "Курортный" + DISTRICT, "Московский" + DISTRICT, "Невский" + DISTRICT, "Петроградский" + DISTRICT, "Петродворцовый" + DISTRICT, "Приморский" + DISTRICT, "Пушкинский" + DISTRICT, "Фрунзенский" + DISTRICT, "Центральный" + DISTRICT));
     private static final String BENEFIT = SPACE + "льгота";
@@ -197,13 +195,17 @@ public class MyBot extends TelegramLongPollingBot {
         printToLog(String.format("User id: %s sent: %s", chatId, text));
 
         if (!idsMap.containsKey(chatId) || (idsMap.containsKey(chatId) && !idsMap.get(chatId))) {
-            printToLog("Bot status: stopped");
+            if (!idsMap.containsKey(chatId)){
+                printToLog("Chat id not contains in idsMap");
+            } else {
+                printToLog("Bot status: stopped");
+            }
             if (!text.equals(START)) {
                 text = STOP;
             }
         }
 
-        if (!createDataJsonWithIdFile()) {
+        if (!createDataJsonWithIdFile(chatId)) {
             return;
         }
 
@@ -651,6 +653,78 @@ public class MyBot extends TelegramLongPollingBot {
         }
     }
 
+    protected void getSubscriptions() {
+        if (!getDataFromJsonFile(false)) {
+//            sendMessageToBot("Error in create dataJson file!");
+            printToLog("Error in create dataJson file!");
+            return;
+        }
+
+        for (Long id : idsMap.keySet()) {
+            if (Boolean.FALSE.equals(idsMap.get(id))) {
+                continue;
+            }
+            if (!createDataJsonWithIdFile(id)) {
+//                sendMessageToBot("Error in create dataJsonWithId file!");
+                printToLog("Error in create dataJsonWithId file!");
+                continue;
+            }
+
+//            LocalDate dateFromJsonWithIdFile = LocalDate.parse(lastDay);
+//            if (!LocalDate.now().isAfter(dateFromJsonWithIdFile)) {
+//                sendMessageToBot("It has already searched today!");
+//                printToLog("It has already searched today!");
+////            continue;
+//            }
+
+            if (subscriptionMap.isEmpty()) {
+//                sendMessageToBot("subscriptionMap empty!");
+                printToLog("subscriptionMap empty!");
+                continue;
+            }
+
+            int countFounded = 0;
+            for (Map.Entry<String, String> entry : subscriptionMap.entrySet()) {
+                String drugName = entry.getKey();
+                String benefit = entry.getValue();
+                Map<String, Map<String, ArrayList<DistrictsDTO>>> lastMapByDrugInWeb = getLastMapByDrugInWeb(drugName);
+                if (lastMapByDrugInWeb.isEmpty()) {
+                    printToLog("Drug not found in web: " + drugName);
+                    continue;
+                }
+                if (lastMapByDrugInWeb.containsKey(RESPONSE_DTO_IS_NULL) ||
+                        lastMapByDrugInWeb.containsKey(ERROR_IN_FIND_DRUGS) ||
+                        lastMapByDrugInWeb.containsKey(UNSUCCESSFUL_RESULT)) {
+                    printToLog("Smth problem, drug not found in web: " + drugName);
+                    return;
+                }
+                Map<String, ArrayList<DistrictsDTO>> districtsMapFromWeb = lastMapByDrugInWeb.get(drugName);
+                List<String> messagesList = getMessagesListOfDrugsMoreThanZero(districtsMapFromWeb, benefit);
+                if (!messagesList.isEmpty()) {
+                    sendMessageToBot(DRUG_FOUND + LINE_SEPARATOR
+                            + DRUG_PRINT + drugName + LINE_SEPARATOR
+                            + BENEFIT_PRINT + benefit + LINE_SEPARATOR
+                            + LINE_SEPARATOR
+                            + INFO + ": " + INFO_BEFORE_VISIT + "!" + LINE_SEPARATOR
+                            + LINE_SEPARATOR
+                            + PHARMACIES_AND_AVAILABILITY);
+                    messagesList.forEach(this::sendMessageToBot);
+                    printToLog("Drug exists: " + drugName);
+                    countFounded++;
+                } else {
+                    printToLog("Drug not exists: " + drugName);
+                }
+            }
+
+            writeDataToJsonWithIdFile();
+
+            if (countFounded > 0) {
+                sendMessageToBot("Поиск лекарст из ваших подписок происходит каждые 5 минут." +
+                        LINE_SEPARATOR + "Чтобы больше не получать уведомления, вы можете отписаться: " + UNSUBSCRIBE);
+            }
+        }
+    }
+
     private List<List<String>> swapOneRowToRows(List<String> buttonNamesList) {
         List<List<String>> rows = new ArrayList<>();
 
@@ -736,7 +810,7 @@ public class MyBot extends TelegramLongPollingBot {
         }
     }
 
-    private boolean createDataJsonWithIdFile() {
+    private boolean createDataJsonWithIdFile(long chatId) {
         sendMessage.setChatId(chatId);
 
         File file;
@@ -815,7 +889,7 @@ public class MyBot extends TelegramLongPollingBot {
     }
 
     private JSONObject getJSONObjectFromFile(File file) throws FileNotFoundException {
-        Scanner myJson = new Scanner(file);
+        Scanner myJson = new Scanner(new FileInputStream(file), StandardCharsets.UTF_8);
         JSONObject dataJson;
         try {
             if (!myJson.hasNext()) {
@@ -826,7 +900,7 @@ public class MyBot extends TelegramLongPollingBot {
                     writeDataToJsonWithIdFile();
                 }
 
-                myJson = new Scanner(file);
+                myJson = new Scanner(new FileInputStream(file), StandardCharsets.UTF_8);
                 if (!myJson.hasNext()) {
                     printToLog(MY_BOT_ERROR + " 9: Json file still empty: " + file);
                     myJson.close();
@@ -867,7 +941,7 @@ public class MyBot extends TelegramLongPollingBot {
     }
 
     private static File findOrCreateFile(String fileName) throws IOException {
-        File file = new File(fileName);
+        File file = new File(absolutePath + fileName);
         if (file.createNewFile()) {
             printToLog(String.format("File %s created", file.getAbsolutePath()));
         } else {
