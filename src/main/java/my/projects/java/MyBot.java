@@ -20,6 +20,8 @@ import java.io.*;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 
 import static my.projects.java.Main.*;
@@ -195,7 +197,7 @@ public class MyBot extends TelegramLongPollingBot {
         printToLog(String.format("User id: %s sent: %s", chatId, text));
 
         if (!idsMap.containsKey(chatId) || (idsMap.containsKey(chatId) && !idsMap.get(chatId))) {
-            if (!idsMap.containsKey(chatId)){
+            if (!idsMap.containsKey(chatId)) {
                 printToLog("Chat id not contains in idsMap");
             } else {
                 printToLog("Bot status: stopped");
@@ -213,6 +215,8 @@ public class MyBot extends TelegramLongPollingBot {
     }
 
     private void checkTextIsCommandOrUserChoose(String text) {
+        writeDataToJsonWithIdFile(); //to write current date and time to json
+
         String editedText = StringUtils.EMPTY;
         if (text.contains(ROUND_BRACKET_OPEN) && text.contains(ROUND_BRACKET_CLOSE)) {
             editedText = text.substring(0, text.lastIndexOf(SPACE + ROUND_BRACKET_OPEN));
@@ -665,20 +669,31 @@ public class MyBot extends TelegramLongPollingBot {
                 continue;
             }
             if (!createDataJsonWithIdFile(id)) {
-//                sendMessageToBot("Error in create dataJsonWithId file!");
                 printToLog("Error in create dataJsonWithId file!");
                 continue;
             }
 
-//            LocalDate dateFromJsonWithIdFile = LocalDate.parse(lastDay);
-//            if (!LocalDate.now().isAfter(dateFromJsonWithIdFile)) {
-//                sendMessageToBot("It has already searched today!");
-//                printToLog("It has already searched today!");
-////            continue;
-//            }
+            LocalDateTime dateAndTime = null;
+            try {
+                dateAndTime = LocalDateTime.parse(lastDay);
+            } catch (DateTimeParseException e){
+                printToLog("LocalDateTime error: " + e.getMessage());
+                try {
+                    dateAndTime = LocalDate.parse(lastDay).atStartOfDay();
+                } catch (DateTimeParseException e2){
+                    printToLog("LocalDate error: " + e2.getMessage());
+                }
+            }
+            if (dateAndTime == null){
+                continue;
+            }
+
+            if (LocalDateTime.now().minusMinutes(4).isBefore(dateAndTime)) {
+                printToLog("4 minutes have not passed yet!");
+                continue;
+            }
 
             if (subscriptionMap.isEmpty()) {
-//                sendMessageToBot("subscriptionMap empty!");
                 printToLog("subscriptionMap empty!");
                 continue;
             }
@@ -922,7 +937,7 @@ public class MyBot extends TelegramLongPollingBot {
     private boolean writeDataToJsonWithIdFile() {
         int i = 0;
         return writeDataToFile(new JSONObject()
-                        .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[i++].getName(), LocalDate.now())
+                        .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[i++].getName(), LocalDateTime.now())
                         .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[i++].getName(), userName)
                         .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[i++].getName(), districtsSet)
                         .put(DATA_WITH_ID_JSON_DECLARED_FIELDS[i++].getName(), subscriptionMap)
