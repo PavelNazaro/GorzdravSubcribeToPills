@@ -27,14 +27,11 @@ import java.util.*;
 import static my.projects.java.Main.*;
 
 public class MyBot extends TelegramLongPollingBot {
-    private final String botToken;
-    private final String botUsername;
-    private final String pathToJsonFromWeb;
+    private final PropertiesDTO propertiesDTO;
     private final File dataJsonFile;
     private File dataJsonWithIdFile;
     private Map<Long, Boolean> idsMap;
     private long chatId;
-    private final long adminId;
     private String lastDay;
     private Map<String, Map<String, ArrayList<DistrictsDTO>>> lastMap;
     private Map<String, String> subscriptionMap;// drugName/benefit
@@ -145,11 +142,8 @@ public class MyBot extends TelegramLongPollingBot {
         }
     }
 
-    public MyBot(Properties properties, File dataJsonFile) {
-        this.botToken = properties.getProperty(PROPERTY_BOT_TOKEN);
-        this.botUsername = properties.getProperty(PROPERTY_BOT_USERNAME);
-        this.pathToJsonFromWeb = properties.getProperty(PROPERTY_PATH_TO_JSON_FROM_WEB);
-        this.adminId = Long.parseLong(properties.getProperty(PROPERTY_ADMIN_ID));
+    public MyBot(PropertiesDTO propertiesDTO, File dataJsonFile) {
+        this.propertiesDTO = propertiesDTO;
         this.dataJsonFile = dataJsonFile;
         this.lastCommand = StringUtils.EMPTY;
 
@@ -411,7 +405,7 @@ public class MyBot extends TelegramLongPollingBot {
                         LINE_SEPARATOR +
                         "Пожалуйста, пользуйтесь всплывающим блоком кнопок, которые сделаны для Вашего максимального удобства и быстрого управления" + LINE_SEPARATOR +
                         "Бот бесплатен!");
-                sendMessageToAdmin(String.format("User %s just joined to %s", userName, botUsername));
+                sendMessageToAdmin(String.format("User %s just joined to %s", userName, propertiesDTO.getBotUsername()));
             }
             idsMap.put(chatId, true);
             writeDataToJsonWithIdFile();
@@ -799,7 +793,7 @@ public class MyBot extends TelegramLongPollingBot {
     }
 
     private void sendMessageToAdmin(String text) {
-        sendMessageToCertainUser(text, adminId);
+        sendMessageToCertainUser(text, propertiesDTO.getAdminId());
     }
 
     private void sendMessageToCertainUser(String text, long chatId) {
@@ -965,11 +959,11 @@ public class MyBot extends TelegramLongPollingBot {
     }
 
     public String getBotUsername() {
-        return botUsername;
+        return propertiesDTO.getBotUsername();
     }
 
     public String getBotToken() {
-        return botToken;
+        return propertiesDTO.getBotToken();
     }
 
     public boolean isGlobalError() {
@@ -981,10 +975,10 @@ public class MyBot extends TelegramLongPollingBot {
     }
 
     public String getPathToJsonFromWeb() {
-        return pathToJsonFromWeb;
+        return propertiesDTO.getPathToJsonFromWeb();
     }
 
     private boolean isAdminId() {
-        return chatId == adminId;
+        return chatId == propertiesDTO.getAdminId();
     }
 }
