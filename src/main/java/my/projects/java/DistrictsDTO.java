@@ -137,11 +137,11 @@ public class DistrictsDTO {
 
     public String createMessage(Benefit benefit) {
         return "Остаток: " + benefit.getCount() + " шт" + LINE_SEPARATOR +
-                storeDistrict + " " + storeName + LINE_SEPARATOR +
+                storeDistrict + ", " + storeName + LINE_SEPARATOR +
                 "Адрес: " + storeAddress + LINE_SEPARATOR +
-                "Название: " + drugName + LINE_SEPARATOR +
-                "Международное наименование: " + mnnName + LINE_SEPARATOR +
-                benefit.getBenefitName() + ", остаток: " + benefit.getCount() + " шт" + LINE_SEPARATOR +
+//                "Название: " + drugName + LINE_SEPARATOR +
+//                "Международное наименование: " + mnnName + LINE_SEPARATOR +
+//                benefit.getBenefitName() + ", остаток: " + benefit.getCount() + " шт" + LINE_SEPARATOR +
                 "Дата обновления данных: " + LocalDateTime.parse(actualDate).toLocalDate();
     }
 }

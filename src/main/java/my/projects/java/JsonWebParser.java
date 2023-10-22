@@ -12,14 +12,11 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import static my.projects.java.Main.printToLog;
 
 public class JsonWebParser {
     private static final String JSON_PARSER_ERROR = "JsonParser Error";
-    public static final int MAX_MESSAGE_LENGTH = 4096;
 
     public JsonWebParser() {
     }
@@ -38,7 +35,6 @@ public class JsonWebParser {
             return mapMap;
         }
 
-
         if (Boolean.FALSE.equals(responseDTO.getSuccess())) {
             printToLog(JSON_PARSER_ERROR + " 2: " + MyBot.UNSUCCESSFUL_RESULT);
             mapMap.put(MyBot.UNSUCCESSFUL_RESULT, new HashMap<>());
@@ -51,6 +47,7 @@ public class JsonWebParser {
             return mapMap;
         }
 
+        Map<Integer, String> benefitsMap = bot.getConnectionsToDB().getBenefitsTable();
         JSONObject drugs = responseDTO.getResult();
         Iterator<String> drugsIterator = drugs.keys();
         while (drugsIterator.hasNext()) {
@@ -77,10 +74,10 @@ public class JsonWebParser {
                             storeObject.getString(fields[3].getName()),
                             storeObject.getString(fields[4].getName()),
                             storeObject.getString(fields[5].getName()),
-                            new Benefit(bot.getBenefits().get(0), storeObject.getInt(fields[6].getName())),
-                            new Benefit(bot.getBenefits().get(1), storeObject.getInt(fields[7].getName())),
-                            new Benefit(bot.getBenefits().get(2), storeObject.getInt(fields[8].getName())),
-                            new Benefit(bot.getBenefits().get(3), storeObject.getInt(fields[9].getName())),
+                            new Benefit(benefitsMap.get(1), storeObject.getInt(fields[6].getName())),
+                            new Benefit(benefitsMap.get(2), storeObject.getInt(fields[7].getName())),
+                            new Benefit(benefitsMap.get(3), storeObject.getInt(fields[8].getName())),
+                            new Benefit(benefitsMap.get(4), storeObject.getInt(fields[9].getName())),
                             storeObject.getInt(fields[10].getName()))
                     );
                 }
@@ -127,7 +124,7 @@ public class JsonWebParser {
         URL url = new URL(urlString);
         StringBuilder buffer = new StringBuilder();
 
-        try(BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream(), StandardCharsets.UTF_8))) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream(), StandardCharsets.UTF_8))) {
             int read;
             char[] chars = new char[1024];
             while ((read = reader.read(chars)) != -1) {
