@@ -19,7 +19,6 @@ import java.util.Scanner;
 
 public class Main {
     private static final String LOG_FILES_FOLDER_NAME = "logs";
-    protected static final String DATA_JSON_FILES_FOLDER_NAME = "data files";
     private static final String LOG_FILE_START_PATTERN = "log_";
     private static final String LOG_FILE_END_PATTERN = ".txt";
     private static final String LOG_FILE_PATTERN = LOG_FILE_START_PATTERN + "%s" + LOG_FILE_END_PATTERN;
@@ -28,40 +27,38 @@ public class Main {
             new File(Main.class.getProtectionDomain().getCodeSource().getLocation().getPath()).getParentFile().getPath();
     private static final String ERROR_FILE_NOT_FOUND = "Error: File %s not found";
     private static final String CONFIG_PROPERTIES = "config.properties";
-    protected static final String DATA_JSON = "data%s.json";
     private static final String STOP = "stop";
 
     public static void main(String[] args) {
         System.setProperty("file.encoding", "UTF-8");
 
         checkAbsolutePath();
-        String logMessage = checkLogFile();
+        String logMessage = checkLogFile(true);
         printToLogFirst("Absolute path: " + absolutePath);
         printToLog(logMessage);
-        File dataJsonFile = checkDataJsonFile();
 
         PropertiesDTO propertiesDTO = checkConfigFileAndReturnProperties();
-        if (propertiesDTO == null || !propertiesDTO.isAllPropertiesNotEmpty()){
+        if (propertiesDTO == null || !propertiesDTO.isAllPropertiesNotEmpty()) {
             printToLog("Main Error 7: Properties DTO null or empty!");
             shutdownJar();
+            return;
         }
 
-        MyBot bot = new MyBot(propertiesDTO, dataJsonFile);
-        if (bot.isGlobalError()) {
-            printToLog(String.format("Main Error 8: Bot %s started with error!", propertiesDTO.getBotUsername()));
-            shutdownJar();
-        }
+        startMyBot(propertiesDTO);
+        startConsoleHandler();
+    }
+
+    private static void startMyBot(PropertiesDTO propertiesDTO) {
+        MyBot bot = new MyBot(propertiesDTO);
 
         try {
             TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
             botsApi.registerBot(bot);
             printToLog(String.format("Bot %s started successfully!", propertiesDTO.getBotUsername()));
-
-            startConsoleHandler();
-            new MyTimer(bot);
         } catch (TelegramApiException e) {
-            printToLog(String.format("Main Error 9: Error in register bot %s: %s", propertiesDTO.getBotUsername(), e.getMessage()));
+            printToLog(String.format("Main Error 10: Error in register bot %s: %s", propertiesDTO.getBotUsername(), e.getMessage()));
         }
+        new MyTimer(bot);
     }
 
     private static void checkAbsolutePath() {
@@ -103,7 +100,7 @@ public class Main {
         return propertiesDTO;
     }
 
-    private static String checkLogFile() {
+    private static String checkLogFile(boolean isFirstCheck) {
         String logMessageLog = StringUtils.EMPTY;
         String logMessage;
         File logFilesFolder = new File(absolutePath + LOG_FILES_FOLDER_NAME);
@@ -122,7 +119,9 @@ public class Main {
                 logMessageLog += logMessage + System.lineSeparator();
             }
             logMessage = "Log file absolute path: " + logFile.getAbsolutePath();
-            System.out.println(logMessage);
+            if (isFirstCheck) {
+                System.out.println(logMessage);
+            }
             logMessageLog += logMessage;
             if (!logFile.exists()) {
                 throw new IOException(String.format(ERROR_FILE_NOT_FOUND, logFile.getAbsolutePath()));
@@ -132,28 +131,6 @@ public class Main {
             shutdownJar();
         }
         return logMessageLog;
-    }
-
-    private static File checkDataJsonFile() {
-        File dataJsonFilesFolder = new File(absolutePath + DATA_JSON_FILES_FOLDER_NAME);
-        if (!dataJsonFilesFolder.exists()) {
-            printToLog("Data json files folder created: " + dataJsonFilesFolder.mkdirs());
-        }
-
-        File dataJsonFile = new File(dataJsonFilesFolder.getAbsolutePath() + File.separator + String.format(DATA_JSON, ""));
-        try {
-            if (!dataJsonFile.exists()) {
-                printToLog("Data json file created: " + dataJsonFile.createNewFile());
-            }
-            printToLog("Data json file absolute path: " + dataJsonFile.getAbsolutePath());
-            if (!dataJsonFile.exists()) {
-                throw new IOException(String.format(ERROR_FILE_NOT_FOUND, dataJsonFile.getAbsolutePath()));
-            }
-        } catch (IOException e) {
-            printToLog("Error: " + e.getMessage());
-            shutdownJar();
-        }
-        return dataJsonFile;
     }
 
     private static void startConsoleHandler() {
@@ -190,7 +167,7 @@ public class Main {
             }
             logText += System.lineSeparator();
 
-            checkLogFile();
+            checkLogFile(false);
             Files.write(Paths.get(logFilePath), logText.getBytes(), StandardOpenOption.APPEND);
         } catch (IOException e) {
             System.out.println("Error: " + e.getMessage());
