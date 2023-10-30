@@ -182,8 +182,9 @@ public class MyBot extends TelegramLongPollingBot {
             return;
         }
 
-        if (!usersTableFromDB.containsKey(userId) || (usersTableFromDB.containsKey(userId) && !usersTableFromDB.get(userId))) {
-            if (!usersTableFromDB.containsKey(userId)) {
+        boolean isUsersTableContainsKey = usersTableFromDB.containsKey(userId);
+        if (!isUsersTableContainsKey || (isUsersTableContainsKey && !usersTableFromDB.get(userId))) {
+            if (!isUsersTableContainsKey) {
                 printToLog("Chat id not contains in usersTableFromDB");
             } else {
                 printToLog("Bot status: stopped");
@@ -193,18 +194,17 @@ public class MyBot extends TelegramLongPollingBot {
             }
         }
 
+        if (isUsersTableContainsKey && !connectionsToDB.updateLastActionTimeInUsersTableByUserId(userId, getLocalDateTimeNow())) { //to write current date and time to json
+            sendMessageToBot(ERROR_TRY_AGAIN_LATER);
+            return;
+        }
+
         checkTextIsCommandOrUserChoose(text);
 
         connectionsToDB.closeConnection();
     }
 
-    private void checkTextIsCommandOrUserChoose(String text) {
-        if (!connectionsToDB.updateLastActionTimeInUsersTableByUserId(userId, getLocalDateTimeNow())) { //to write current date and time to json
-            sendMessageToBot(ERROR_TRY_AGAIN_LATER);
-            return;
-        }
-
-        String editedText = StringUtils.EMPTY;
+    private void checkTextIsCommandOrUserChoose(String text) {String editedText = StringUtils.EMPTY;
         if (text.contains(ROUND_BRACKET_OPEN) && text.contains(ROUND_BRACKET_CLOSE)) {
             editedText = text.substring(0, text.lastIndexOf(SPACE + ROUND_BRACKET_OPEN));
         }
@@ -382,11 +382,12 @@ public class MyBot extends TelegramLongPollingBot {
     }
 
     private void proceedStartCommand() {
-        if (usersTableFromDB.containsKey(userId) && Boolean.TRUE.equals(usersTableFromDB.get(userId))) {
+        boolean isUsersTableContainsKey = usersTableFromDB.containsKey(userId);
+        if (isUsersTableContainsKey && Boolean.TRUE.equals(usersTableFromDB.get(userId))) {
             sendMessageToBot(BOT_ALREADY_STARTED);
         } else {
             sendMessageToBot(BOT_STARTED);
-            if (!usersTableFromDB.containsKey(userId)) {
+            if (!isUsersTableContainsKey) {
                 sendMessageToBot("Вас приветствует неоффициальный бот по поиску лекарств от Горздрава!" + LINE_SEPARATOR +
                         LINE_SEPARATOR +
                         "Бот создан не только для поиска лекарств в наличии, а также для подписки на них, если лекарства не оказалось в наличии в аптеках Санкт-Петербурга. Для начала выберите удобный(е) для вас район(ы) в котором бот будет искать наличие лекарств для Вас. Для завершения выбора районов, используйте кнопку с сответствующим названием. Далее вы сможете искать лекарства и их наличие, а также подписаться на уведомления." + LINE_SEPARATOR +
@@ -399,9 +400,7 @@ public class MyBot extends TelegramLongPollingBot {
             connectionsToDB.updateUsersTable(userId, true, getLocalDateTimeNow(), userName);
         }
 
-        if (isDistrictsSetEmpty()) {
-            sendDistrictsToBot();
-        } else {
+        if (!isDistrictsSetEmpty()) {
             sendSubscriptions(SubscriptionsEnum.ALL);
             sendMessageToBot(INFO_FIND_DRUGS);
         }
@@ -502,6 +501,10 @@ public class MyBot extends TelegramLongPollingBot {
     private List<String> getMessagesListOfDrugsMoreThanZero(Map<String, ArrayList<DistrictsDTO>> districtsMapOfChoseDrug, String benefitName) {
         List<String> messagesList = new ArrayList<>();
         Set<String> districtsByUserId = connectionsToDB.getDistrictsByUserId(userId);
+        if (districtsByUserId.isEmpty()) {
+            return messagesList;
+        }
+
         for (Map.Entry<String, ArrayList<DistrictsDTO>> entry : districtsMapOfChoseDrug.entrySet()) {
             if (districtsByUserId.contains(entry.getKey())) {
                 for (DistrictsDTO districtsDTO : entry.getValue()) {
@@ -672,9 +675,9 @@ public class MyBot extends TelegramLongPollingBot {
             return;
         }
 
-        Map<Long, Boolean> usersTableFromDB = connectionsToDB.getIdAndIsAvailableFromUsersTableFromDB();
-        for (Long id : usersTableFromDB.keySet()) {
-            if (Boolean.FALSE.equals(usersTableFromDB.get(id))) {
+        Map<Long, Boolean> usersTableFromDBLocal = connectionsToDB.getIdAndIsAvailableFromUsersTableFromDB();
+        for (Long id : usersTableFromDBLocal.keySet()) {
+            if (Boolean.FALSE.equals(usersTableFromDBLocal.get(id))) {
                 continue;
             }
 
@@ -706,7 +709,7 @@ public class MyBot extends TelegramLongPollingBot {
                 continue;
             }
 
-            Map<String, String> userSubscriptionsMap = connectionsToDB.getSubscriptionsMapByUserId(userId);
+            Map<String, String> userSubscriptionsMap = connectionsToDB.getSubscriptionsMapByUserId(id);
             if (userSubscriptionsMap.isEmpty()) {
                 printToLog("subscriptionMap empty!");
                 continue;
