@@ -39,7 +39,7 @@ public class ConnectionsToDB {
     }
 
     public boolean updateUsersTable(long userId, boolean isAvailable, String timestamp, String userName) {
-        String sql = String.format("INSERT INTO users_table (id, is_available, last_action_time, name) VALUES (%s,%s,'%s','%s') ON DUPLICATE KEY UPDATE is_available=%s, last_action_time='%s', name='%s'", userId, isAvailable, timestamp, userName, isAvailable, timestamp, userName);
+        String sql = String.format("INSERT INTO users_table (id, is_available, last_action_time, name) VALUES (%s,%s,'%s','%s') ON CONFLICT(id) DO UPDATE SET is_available=%s, last_action_time='%s', name='%s'", userId, isAvailable, timestamp, userName, isAvailable, timestamp, userName);
         printToLog(SQL + sql);
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -378,10 +378,8 @@ public class ConnectionsToDB {
 
     protected boolean createConnection() {
         try {
-            connection = DriverManager.getConnection(
-                    propertiesDTO.getDatabaseUrl(),
-                    propertiesDTO.getDatabaseUsername(),
-                    propertiesDTO.getDatabasePassword());
+            Class.forName("org.sqlite.JDBC");
+            connection = DriverManager.getConnection(propertiesDTO.getDatabaseUrl());
             if (connection == null || connection.isClosed()) {
                 printToLog("Failed to make a connection!");
                 return false;
@@ -391,7 +389,7 @@ public class ConnectionsToDB {
             connection.setSchema("mydatabase");
 
             return true;
-        } catch (SQLException e) {
+        } catch (SQLException | ClassNotFoundException e) {
             printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 20) + e.getMessage());
         }
         return false;
