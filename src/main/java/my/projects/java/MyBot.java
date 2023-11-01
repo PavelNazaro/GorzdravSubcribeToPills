@@ -13,6 +13,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.Keyboard
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -28,12 +29,14 @@ public class MyBot extends TelegramLongPollingBot {
     private final ConnectionsToDB connectionsToDB;
     private long userId;
     private Map<String, Map<String, ArrayList<DistrictsDTO>>> lastMap;
+    private Map<Integer, String> benefitsMap;
+    private Map<Integer, String> districtsMap;
     private String userName;
     private String lastCommand;
     private LastUserChoose lastUserChoose;
     private final SendMessage sendMessage = new SendMessage();
     private Map<Long, Boolean> usersTableFromDB;
-    private static final DateTimeFormatter localDateTimeFormatterForSql = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter LOCAL_DATE_TIME_FORMATTER_FOR_SQL = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private static final String START = "/start";
     private static final String STOP = "/stop";
@@ -128,12 +131,12 @@ public class MyBot extends TelegramLongPollingBot {
         }
     }
 
-    public MyBot(PropertiesDTO propertiesDTO) {
+    public MyBot(ConnectionsToDB connectionsToDB, PropertiesDTO propertiesDTO, long startTime) {
         this.propertiesDTO = propertiesDTO;
         this.lastCommand = StringUtils.EMPTY;
-        this.connectionsToDB = new ConnectionsToDB(propertiesDTO);
-
-        long startTime = System.nanoTime();
+        this.connectionsToDB = connectionsToDB;
+        this.benefitsMap = connectionsToDB.getBenefitsTable();
+        this.districtsMap = connectionsToDB.getDistrictsTable();
 
         printToLog(String.format("Start duration, ms: %s", (System.nanoTime() - startTime) / 1000000));
     }
@@ -150,7 +153,7 @@ public class MyBot extends TelegramLongPollingBot {
 
             try {
                 messageProcessing(message);
-            } catch (Exception e){
+            } catch (Exception e) {
                 printToLog("Global error: " + e.getMessage());
             }
         }
@@ -171,13 +174,14 @@ public class MyBot extends TelegramLongPollingBot {
 
         printToLog(String.format("User id: %s sent: %s", userId, text));
 
-        if (!connectionsToDB.createConnection()){
+        if (!connectionsToDB.isConnectionActive() && !connectionsToDB.createConnection()) {
             sendMessageToBot(ERROR_TRY_AGAIN_LATER);
+            printToLog("Error: Can not create connection!");
             return;
         }
 
         usersTableFromDB = connectionsToDB.getIdAndIsAvailableFromUsersTableFromDB();
-        if (usersTableFromDB == null){
+        if (usersTableFromDB == null) {
             printToLog(MY_BOT_ERROR + " 4: usersTableFromDB is null!");
             return;
         }
@@ -204,7 +208,8 @@ public class MyBot extends TelegramLongPollingBot {
         connectionsToDB.closeConnection();
     }
 
-    private void checkTextIsCommandOrUserChoose(String text) {String editedText = StringUtils.EMPTY;
+    private void checkTextIsCommandOrUserChoose(String text) {
+        String editedText = StringUtils.EMPTY;
         if (text.contains(ROUND_BRACKET_OPEN) && text.contains(ROUND_BRACKET_CLOSE)) {
             editedText = text.substring(0, text.lastIndexOf(SPACE + ROUND_BRACKET_OPEN));
         }
@@ -213,7 +218,7 @@ public class MyBot extends TelegramLongPollingBot {
             return;
         }
         if (lastCommand.equals(START) || lastCommand.equals(CHANGE_DISTRICTS)) {
-            Set<String> districtsSet = connectionsToDB.getDistrictNamesFromDistrictsTable();
+            Set<String> districtsSet = new TreeSet<>(districtsMap.values());
             if (StringUtils.isNotEmpty(editedText) && districtsSet.contains(editedText)) {
                 proceedChangeDistrict(editedText);
                 return;
@@ -408,7 +413,7 @@ public class MyBot extends TelegramLongPollingBot {
     }
 
     private static String getLocalDateTimeNow() {
-        return LocalDateTime.now().format(localDateTimeFormatterForSql);
+        return LocalDateTime.now().format(LOCAL_DATE_TIME_FORMATTER_FOR_SQL);
     }
 
     private void proceedChangeDistrict(String text) {
@@ -433,7 +438,9 @@ public class MyBot extends TelegramLongPollingBot {
     }
 
     private void proceedChooseAllDistricts() {
-        if (connectionsToDB.addAllDistrictsIdFromUserDistrictsTable(userId)) {
+        Set<Integer> districtIdsFromDistrictsTable = districtsMap.keySet();
+        if (!districtIdsFromDistrictsTable.isEmpty() &&
+                connectionsToDB.addAllDistrictsIdFromUserDistrictsTable(districtIdsFromDistrictsTable, userId)) {
             sendSubscriptions(SubscriptionsEnum.ALL);
         } else {
             sendMessageToBot(ERROR_TRY_AGAIN_LATER);
@@ -489,8 +496,9 @@ public class MyBot extends TelegramLongPollingBot {
     private void proceedUserChooseBenefits(String benefit) {
         lastUserChoose.setBenefit(benefit);
         Map<String, ArrayList<DistrictsDTO>> districtsMapOfChoseDrug = lastMap.get(lastUserChoose.getDrugName());
-        String internationalName = getInternationalName(districtsMapOfChoseDrug);
-        List<String> messagesList = getMessagesListOfDrugsMoreThanZero(districtsMapOfChoseDrug, benefit);
+        Set<String> districtsByUserId = connectionsToDB.getDistrictsByUserId(userId);
+        String internationalName = getInternationalName(districtsByUserId, districtsMapOfChoseDrug);
+        List<String> messagesList = getMessagesListOfDrugsMoreThanZero(districtsByUserId, districtsMapOfChoseDrug, benefit);
 
         sendFoundedDrugsToBot(lastUserChoose.getDrugName(), benefit, internationalName, messagesList, messagesList.isEmpty());
 
@@ -498,9 +506,8 @@ public class MyBot extends TelegramLongPollingBot {
         lastCommand = PROCEED_USER_CHOOSE_BENEFITS;
     }
 
-    private List<String> getMessagesListOfDrugsMoreThanZero(Map<String, ArrayList<DistrictsDTO>> districtsMapOfChoseDrug, String benefitName) {
+    private List<String> getMessagesListOfDrugsMoreThanZero(Set<String> districtsByUserId, Map<String, ArrayList<DistrictsDTO>> districtsMapOfChoseDrug, String benefitName) {
         List<String> messagesList = new ArrayList<>();
-        Set<String> districtsByUserId = connectionsToDB.getDistrictsByUserId(userId);
         if (districtsByUserId.isEmpty()) {
             return messagesList;
         }
@@ -518,8 +525,7 @@ public class MyBot extends TelegramLongPollingBot {
         return messagesList;
     }
 
-    private String getInternationalName(Map<String, ArrayList<DistrictsDTO>> districtsMapOfChoseDrug) {
-        Set<String> districtsByUserId = connectionsToDB.getDistrictsByUserId(userId);
+    private String getInternationalName(Set<String> districtsByUserId, Map<String, ArrayList<DistrictsDTO>> districtsMapOfChoseDrug) {
         for (Map.Entry<String, ArrayList<DistrictsDTO>> entry : districtsMapOfChoseDrug.entrySet()) {
             if (districtsByUserId.contains(entry.getKey())) {
                 for (DistrictsDTO districtsDTO : entry.getValue()) {
@@ -608,7 +614,7 @@ public class MyBot extends TelegramLongPollingBot {
         List<String> districtsButtonsDelete = new ArrayList<>();
         List<String> districtsButtonsAdd = new ArrayList<>();
         Set<String> districtsByUserId = connectionsToDB.getDistrictsByUserId(userId);
-        for (String districtName : connectionsToDB.getDistrictNamesFromDistrictsTable()) {
+        for (String districtName : new TreeSet<>(districtsMap.values())) {
             if (districtsByUserId.contains(districtName)) {
                 districtsButtonsDelete.add(districtName + SPACE + BUTTON_DELETE);
             } else {
@@ -671,7 +677,9 @@ public class MyBot extends TelegramLongPollingBot {
 
     protected void getSubscriptions() {
         printToLog("getSubscriptions");
-        if (!connectionsToDB.createConnection()){
+
+        if (!connectionsToDB.isConnectionActive() && !connectionsToDB.createConnection()) {
+            printToLog("Error: Can not create connection!");
             return;
         }
 
@@ -682,14 +690,20 @@ public class MyBot extends TelegramLongPollingBot {
             }
 
             String lastActionTimeFromDB = connectionsToDB.getLastActionTimeInUsersTableByUserId(id);
-            if (lastActionTimeFromDB.equals(StringUtils.EMPTY)){
+            if (lastActionTimeFromDB.equals(StringUtils.EMPTY)) {
                 printToLog("Error: lastActionTimeFromDB empty!");
                 continue;
             }
 
-            TemporalAccessor parsedLastActionTime = localDateTimeFormatterForSql.parse(lastActionTimeFromDB);
+            TemporalAccessor parsedLastActionTime;
+            try {
+                parsedLastActionTime = LOCAL_DATE_TIME_FORMATTER_FOR_SQL.parse(lastActionTimeFromDB);
+            } catch (DateTimeParseException e) {
+                printToLog("Error: in parse lastActionTimeFromDB!");
+                continue;
+            }
 
-            LocalDateTime dateAndTime = null;
+            LocalDateTime dateAndTime;
             try {
                 dateAndTime = LocalDateTime.from(parsedLastActionTime);
             } catch (DateTimeParseException e) {
@@ -698,14 +712,18 @@ public class MyBot extends TelegramLongPollingBot {
                     dateAndTime = LocalDate.from(parsedLastActionTime).atStartOfDay();
                 } catch (DateTimeParseException e2) {
                     printToLog("LocalDate error: " + e2.getMessage());
+                    continue;
                 }
-            }
-            if (dateAndTime == null) {
-                continue;
             }
 
             if (LocalDateTime.now().minusMinutes(4).isBefore(dateAndTime)) {
                 printToLog("4 minutes have not passed yet!");
+                continue;
+            }
+
+            Set<String> districtsByUserId = connectionsToDB.getDistrictsByUserId(id);
+            if (districtsByUserId.isEmpty()) {
+                printToLog("districtsByUserId empty!");
                 continue;
             }
 
@@ -731,8 +749,8 @@ public class MyBot extends TelegramLongPollingBot {
                     return;
                 }
                 Map<String, ArrayList<DistrictsDTO>> districtsMapFromWeb = lastMapByDrugInWeb.get(drugName);
-                String internationalName = getInternationalName(districtsMapFromWeb);
-                List<String> messagesList = getMessagesListOfDrugsMoreThanZero(districtsMapFromWeb, benefit);
+                String internationalName = getInternationalName(districtsByUserId, districtsMapFromWeb);
+                List<String> messagesList = getMessagesListOfDrugsMoreThanZero(districtsByUserId, districtsMapFromWeb, benefit);
                 if (!messagesList.isEmpty()) {
                     sendFoundedDrugsToBot(drugName, benefit, internationalName, messagesList, false);
                     printToLog("Drug exists: " + drugName);
@@ -851,16 +869,16 @@ public class MyBot extends TelegramLongPollingBot {
         }
     }
 
+    public Map<Integer, String> getBenefitsMap() {
+        return benefitsMap;
+    }
+
     public String getBotUsername() {
         return propertiesDTO.getBotUsername();
     }
 
     public String getBotToken() {
         return propertiesDTO.getBotToken();
-    }
-
-    public ConnectionsToDB getConnectionsToDB() {
-        return connectionsToDB;
     }
 
     public String getPathToJsonFromWeb() {
