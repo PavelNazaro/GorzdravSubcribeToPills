@@ -30,6 +30,7 @@ public class Main {
     private static final String STOP = "stop";
 
     public static void main(String[] args) {
+        long startTime = System.nanoTime();
         System.setProperty("file.encoding", "UTF-8");
 
         checkAbsolutePath();
@@ -44,12 +45,18 @@ public class Main {
             return;
         }
 
-        startMyBot(propertiesDTO);
+        startMyBot(propertiesDTO, startTime);
         startConsoleHandler();
     }
 
-    private static void startMyBot(PropertiesDTO propertiesDTO) {
-        MyBot bot = new MyBot(propertiesDTO);
+    private static void startMyBot(PropertiesDTO propertiesDTO, long startTime) {
+        ConnectionsToDB connectionsToDB = new ConnectionsToDB(propertiesDTO);
+        if (!connectionsToDB.createConnection()){
+            printToLog("Error in create connection!");
+            shutdownJar();
+        }
+
+        MyBot bot = new MyBot(connectionsToDB, propertiesDTO, startTime);
 
         try {
             TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);

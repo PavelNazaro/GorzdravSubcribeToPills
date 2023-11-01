@@ -47,7 +47,6 @@ public class JsonWebParser {
             return mapMap;
         }
 
-        Map<Integer, String> benefitsMap = bot.getConnectionsToDB().getBenefitsTable();
         JSONObject drugs = responseDTO.getResult();
         Iterator<String> drugsIterator = drugs.keys();
         while (drugsIterator.hasNext()) {
@@ -74,10 +73,10 @@ public class JsonWebParser {
                             storeObject.getString(fields[3].getName()),
                             storeObject.getString(fields[4].getName()),
                             storeObject.getString(fields[5].getName()),
-                            new Benefit(benefitsMap.get(1), storeObject.getInt(fields[6].getName())),
-                            new Benefit(benefitsMap.get(2), storeObject.getInt(fields[7].getName())),
-                            new Benefit(benefitsMap.get(3), storeObject.getInt(fields[8].getName())),
-                            new Benefit(benefitsMap.get(4), storeObject.getInt(fields[9].getName())),
+                            new Benefit(bot.getBenefitsMap().get(1), storeObject.getInt(fields[6].getName())),
+                            new Benefit(bot.getBenefitsMap().get(2), storeObject.getInt(fields[7].getName())),
+                            new Benefit(bot.getBenefitsMap().get(3), storeObject.getInt(fields[8].getName())),
+                            new Benefit(bot.getBenefitsMap().get(4), storeObject.getInt(fields[9].getName())),
                             storeObject.getInt(fields[10].getName()))
                     );
                 }

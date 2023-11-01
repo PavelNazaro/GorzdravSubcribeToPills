@@ -13,7 +13,7 @@ public class ConnectionsToDB {
     private final PropertiesDTO propertiesDTO;
     private Connection connection = null;
 
-    public ConnectionsToDB(PropertiesDTO propertiesDTO) {
+    protected ConnectionsToDB(PropertiesDTO propertiesDTO) {
         this.propertiesDTO = propertiesDTO;
     }
 
@@ -38,7 +38,7 @@ public class ConnectionsToDB {
         return usersMap;
     }
 
-    public boolean updateUsersTable(long userId, boolean isAvailable, String timestamp, String userName) {
+    protected boolean updateUsersTable(long userId, boolean isAvailable, String timestamp, String userName) {
         String sql = String.format("INSERT INTO users_table (id, is_available, last_action_time, name) VALUES (%s,%s,'%s','%s') ON CONFLICT(id) DO UPDATE SET is_available=%s, last_action_time='%s', name='%s'", userId, isAvailable, timestamp, userName, isAvailable, timestamp, userName);
         printToLog(SQL + sql);
 
@@ -53,7 +53,7 @@ public class ConnectionsToDB {
         return false;
     }
 
-    public boolean updateLastActionTimeInUsersTableByUserId(long userId, String timestamp) {
+    protected boolean updateLastActionTimeInUsersTableByUserId(long userId, String timestamp) {
         String sql = String.format("UPDATE users_table SET last_action_time='%s' WHERE id = %s", timestamp, userId);
         printToLog(SQL + sql);
 
@@ -68,7 +68,7 @@ public class ConnectionsToDB {
         return false;
     }
 
-    public String getLastActionTimeInUsersTableByUserId(long userId) {
+    protected String getLastActionTimeInUsersTableByUserId(long userId) {
         String sql = String.format("SELECT last_action_time FROM users_table WHERE id = %s", userId);
         printToLog(SQL + sql);
 
@@ -86,47 +86,14 @@ public class ConnectionsToDB {
         return StringUtils.EMPTY;
     }
 
-    public Set<String> getDistrictNamesFromDistrictsTable() {
-        String sql = "SELECT name FROM districts_table";
+    protected Map<Integer, String> getDistrictsTable() {
+        String sql = "SELECT id,name FROM districts_table";
         printToLog(SQL + sql);
-        Set<String> districtsSet = new TreeSet<>();
 
-        try (PreparedStatement statement = connection.prepareStatement(sql);
-             ResultSet resultSet = statement.executeQuery()) {
-
-            while (resultSet.next()) {
-                String name = resultSet.getString("name");
-                printToLog("name: " + name);
-                districtsSet.add(name);
-            }
-        } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 5) + e.getMessage());
-        }
-
-        return districtsSet;
+        return getSimpleTable(sql);
     }
 
-    public Set<Long> getDistrictIdsFromDistrictsTable() {
-        String sql = "SELECT id FROM districts_table";
-        printToLog(SQL + sql);
-        Set<Long> districtsSet = new TreeSet<>();
-
-        try (PreparedStatement statement = connection.prepareStatement(sql);
-             ResultSet resultSet = statement.executeQuery()) {
-
-            while (resultSet.next()) {
-                long id = resultSet.getLong("id");
-                printToLog("id: " + id);
-                districtsSet.add(id);
-            }
-        } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 6) + e.getMessage());
-        }
-
-        return districtsSet;
-    }
-
-    public Set<String> getDistrictsByUserId(long userId) {
+    protected Set<String> getDistrictsByUserId(long userId) {
         String sql = String.format("SELECT user_id, name FROM user_districts_table JOIN districts_table ON user_districts_table.districts_id=districts_table.id where user_id=%s", userId);
         printToLog(SQL + sql);
         Set<String> userDistrictsSet = new TreeSet<>();
@@ -146,7 +113,7 @@ public class ConnectionsToDB {
         return userDistrictsSet;
     }
 
-    public long getDistrictIdByNameFromDistrictsTable(String districtName) {
+    protected long getDistrictIdByNameFromDistrictsTable(String districtName) {
         String sql = String.format("select id from districts_table where name='%s'", districtName);
         printToLog(SQL + sql);
 
@@ -165,7 +132,7 @@ public class ConnectionsToDB {
         return 0;
     }
 
-    public boolean addNewToUserDistrictsTable(long userId, String districtName) {
+    protected boolean addNewToUserDistrictsTable(long userId, String districtName) {
         long districtId = getDistrictIdByNameFromDistrictsTable(districtName);
         if (districtId == 0) {
             printToLog("districtId 0");
@@ -185,7 +152,7 @@ public class ConnectionsToDB {
         return false;
     }
 
-    public boolean removeDistrictIdFromUserDistrictsTable(long userId, String districtName) {
+    protected boolean removeDistrictIdFromUserDistrictsTable(long userId, String districtName) {
         long districtId = getDistrictIdByNameFromDistrictsTable(districtName);
         if (districtId == 0) {
             printToLog("districtId 0");
@@ -205,7 +172,7 @@ public class ConnectionsToDB {
         return false;
     }
 
-    public boolean removeAllDistrictsIdFromUserDistrictsTable(long userId) {
+    protected boolean removeAllDistrictsIdFromUserDistrictsTable(long userId) {
         String sql = String.format("DELETE FROM user_districts_table WHERE (user_id=%s)", userId);
         printToLog(SQL + sql);
 
@@ -220,12 +187,7 @@ public class ConnectionsToDB {
         return false;
     }
 
-    public boolean addAllDistrictsIdFromUserDistrictsTable(long userId) {
-        Set<Long> districtIdsFromDistrictsTable = getDistrictIdsFromDistrictsTable();
-        if (districtIdsFromDistrictsTable == null || districtIdsFromDistrictsTable.isEmpty()) {
-            return false;
-        }
-
+    protected boolean addAllDistrictsIdFromUserDistrictsTable(Set<Integer> districtIdsFromDistrictsTable, long userId) {
         StringBuilder createSql = new StringBuilder("INSERT INTO user_districts_table VALUES ");
         for (long s : districtIdsFromDistrictsTable) {
             createSql.append(String.format("(%s,%s),", userId, s));
@@ -246,7 +208,7 @@ public class ConnectionsToDB {
         return false;
     }
 
-    public Set<String> getBenefitNamesFromBenefitsTable() {
+    protected Set<String> getBenefitNamesFromBenefitsTable() {
         String sql = "SELECT name FROM benefits_table";
         printToLog(SQL + sql);
         Set<String> benefitsSet = new LinkedHashSet<>();
@@ -266,27 +228,14 @@ public class ConnectionsToDB {
         return benefitsSet;
     }
 
-    public Map<Integer, String> getBenefitsTable() {
-        String sql = "SELECT * FROM benefits_table";
+    protected Map<Integer, String> getBenefitsTable() {
+        String sql = "SELECT id,name FROM benefits_table";
         printToLog(SQL + sql);
-        Map<Integer, String> benefitsMap = new HashMap<>();
 
-        try (PreparedStatement statement = connection.prepareStatement(sql);
-             ResultSet resultSet = statement.executeQuery()) {
-
-            while (resultSet.next()) {
-                int id = resultSet.getInt("id");
-                String name = resultSet.getString("name");
-                printToLog("id: " + id + " name: " + name);
-                benefitsMap.put(id, name);
-            }
-        } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 14) + e.getMessage());
-        }
-        return benefitsMap;
+        return getSimpleTable(sql);
     }
 
-    public long getBenefitIdByNameFromBenefitsTable(String benefitName) {
+    protected long getBenefitIdByNameFromBenefitsTable(String benefitName) {
         String sql = String.format("select id from benefits_table where name='%s'", benefitName);
         printToLog(SQL + sql);
 
@@ -305,7 +254,7 @@ public class ConnectionsToDB {
         return 0;
     }
 
-    public boolean addNewToUserSubscriptionsTable(long userId, String subscriptionName, String benefitName) {
+    protected boolean addNewToUserSubscriptionsTable(long userId, String subscriptionName, String benefitName) {
         long benefitId = getBenefitIdByNameFromBenefitsTable(benefitName);
         if (benefitId == 0) {
             printToLog("benefitId 0");
@@ -325,7 +274,7 @@ public class ConnectionsToDB {
         return false;
     }
 
-    public boolean removeFromUserSubscriptionsTableByUserId(long userId, String subscriptionName) {
+    protected boolean removeFromUserSubscriptionsTableByUserId(long userId, String subscriptionName) {
         String sql = String.format("DELETE FROM user_subscriptions_table WHERE (user_id=%s and subscriptions_name='%s')", userId, subscriptionName);
         printToLog(SQL + sql);
 
@@ -340,7 +289,7 @@ public class ConnectionsToDB {
         return false;
     }
 
-    public boolean removeAllFromUserSubscriptionsTableByUserId(long userId) {
+    protected boolean removeAllFromUserSubscriptionsTableByUserId(long userId) {
         String sql = String.format("DELETE FROM user_subscriptions_table WHERE (user_id=%s)", userId);
         printToLog(SQL + sql);
 
@@ -355,7 +304,7 @@ public class ConnectionsToDB {
         return false;
     }
 
-    public Map<String, String> getSubscriptionsMapByUserId(long userId) {
+    protected Map<String, String> getSubscriptionsMapByUserId(long userId) {
         String sql = String.format("SELECT subscriptions_name, name FROM user_subscriptions_table JOIN benefits_table ON user_subscriptions_table.benefit_id=benefits_table.id where user_id=%s", userId);
         printToLog(SQL + sql);
         Map<String, String> userSubscriptionsMap = new TreeMap<>();
@@ -374,6 +323,24 @@ public class ConnectionsToDB {
         }
 
         return userSubscriptionsMap;
+    }
+
+    private Map<Integer, String> getSimpleTable(String sql) {
+        Map<Integer, String> resultMap = new TreeMap<>();
+
+        try (PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet resultSet = statement.executeQuery()) {
+
+            while (resultSet.next()) {
+                int id = resultSet.getInt("id");
+                String name = resultSet.getString("name");
+                printToLog("id: " + id + " name: " + name);
+                resultMap.put(id, name);
+            }
+        } catch (SQLException e) {
+            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 14) + e.getMessage());
+        }
+        return resultMap;
     }
 
     protected boolean createConnection() {
@@ -401,6 +368,17 @@ public class ConnectionsToDB {
             printToLog("Connection closed!");
         } catch (SQLException e) {
             printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 21) + e.getMessage());
+            return false;
+        }
+        return true;
+    }
+
+    protected boolean isConnectionActive() {
+        try {
+            if (connection.isClosed()) {
+                return false;
+            }
+        } catch (SQLException e) {
             return false;
         }
         return true;
