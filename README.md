@@ -28,11 +28,12 @@ ToDo tasks:
 13) <s>Use a database instead of writing to files;</s>
 14) <s>Constant (once every 5 minutes) monitoring of the availability of a drug from user subscriptions and sending a notification when it appears daily;</s>
 15) <s>Not to search in the background if 4 minutes have not passed since the last user action;</s>
-16) Once a pill is found in the background suggest to user not to send any more notifications today;
-17) Save old searches (drug names) and offer them with the button;
-18) Add searches (names of drugs) to the general list with the number of users looking for them and suggest these drugs when searching;
-19) Add an additional question when unsubscribing "Are you sure? Yes / No";
-20) Settings. Change language;
+16) <s>Use log4j2;</s>
+17) Once a pill is found in the background suggest to user not to send any more notifications today;
+18) Save old searches (drug names) and offer them with the button;
+19) Add searches (names of drugs) to the general list with the number of users looking for them and suggest these drugs when searching;
+20) Add an additional question when unsubscribing "Are you sure? Yes / No";
+21) Settings. Change language;
 
 Чек-лист:
 1) <s>Создать каркас бота с файлом конфигурации;</s>
@@ -50,8 +51,9 @@ ToDo tasks:
 13) <s>Использовать базу данных вместо записи в файл;</s>
 14) <s>Постоянный (раз в 5 минут) мониторинг наличия лекарства из подписок пользователей и отправки уведомления при появлении;</s>
 15) <s>Не искать фоном, если с последнего действия пользователя не прошло 4 минуты;</s>
-16) После того как лекарство найдено в фоновом режиме предложить пользователю больше не присылать уведомления сегодня;
-17) Сохранять старые поиски (названия лекарств) и предлагать их кнопкой;
-18) Добавлять поиски (названия лекарств) в общий список с количеством пользователей ищущих их и предлагать эти лекарства при поиске;
-19) Добавить дополнительный вопрос при отписке "Вы уверены? Да/Нет";
-20) Настройки. Смена языка;
+16) <s>Использовать log4j2;</s>
+17) После того как лекарство найдено в фоновом режиме предложить пользователю больше не присылать уведомления сегодня;
+18) Сохранять старые поиски (названия лекарств) и предлагать их кнопкой;
+19) Добавлять поиски (названия лекарств) в общий список с количеством пользователей ищущих их и предлагать эти лекарства при поиске;
+20) Добавить дополнительный вопрос при отписке "Вы уверены? Да/Нет";
+21) Настройки. Смена языка;

@@ -1,6 +1,8 @@
 package my.projects.java;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
@@ -13,7 +15,6 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.Keyboard
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -21,10 +22,10 @@ import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAccessor;
 import java.util.*;
 
-import static my.projects.java.Main.printToLog;
 import static my.projects.java.Main.shutdownJar;
 
 public class MyBot extends TelegramLongPollingBot {
+    private static final Logger LOGGER = LogManager.getLogger(Main.class);
     private final PropertiesDTO propertiesDTO;
     private final ConnectionsToDB connectionsToDB;
     private long userId;
@@ -112,7 +113,7 @@ public class MyBot extends TelegramLongPollingBot {
     protected static final String UNSUCCESSFUL_RESULT = "Unsuccessful result";
     protected static final String ERROR_IN_FIND_DRUGS = "Error in find drugs";
     protected static final String RESPONSE_DTO_IS_NULL = "ResponseDTO is null";
-    private static final String MY_BOT_ERROR = "MyBot Error";
+    private static final String MY_BOT_ERROR = "MyBot Error {}: {}";
     private static final String ROUND_BRACKET_OPEN = "(";
     private static final String ROUND_BRACKET_CLOSE = ")";
     private static final String BUTTON_ADD = ROUND_BRACKET_OPEN + "Добавить" + ROUND_BRACKET_CLOSE;
@@ -138,7 +139,7 @@ public class MyBot extends TelegramLongPollingBot {
         this.benefitsMap = connectionsToDB.getBenefitsTable();
         this.districtsMap = connectionsToDB.getDistrictsTable();
 
-        printToLog(String.format("Start duration, ms: %s", (System.nanoTime() - startTime) / 1000000));
+        LOGGER.debug(String.format("Start duration, ms: %s", (System.nanoTime() - startTime) / 1000000));
     }
 
     public void onUpdateReceived(Update update) {
@@ -147,18 +148,18 @@ public class MyBot extends TelegramLongPollingBot {
         if (update.hasMessage() && update.getMessage().hasText()) {
             Message message = update.getMessage();
             if (!message.hasText()) {
-                printToLog(MY_BOT_ERROR + " 3: Message is EMPTY!");
+                LOGGER.error(MY_BOT_ERROR, 3, "Message is EMPTY!");
                 return;
             }
 
             try {
                 messageProcessing(message);
             } catch (Exception e) {
-                printToLog("Global error: " + e.getMessage());
+                LOGGER.error("Global error: {}", e.getMessage());
             }
         }
 
-        printToLog(String.format("Duration, ms: %s", (System.nanoTime() - startTime) / 1000000));
+        LOGGER.debug("Duration, ms: {}", (System.nanoTime() - startTime) / 1000000);
     }
 
     private void messageProcessing(Message message) {
@@ -168,30 +169,30 @@ public class MyBot extends TelegramLongPollingBot {
         String text = message.getText();
 
         if (text.isEmpty()) {
-            printToLog(MY_BOT_ERROR + " 4: Message is EMPTY!");
+            LOGGER.error(MY_BOT_ERROR, 4, "Message is EMPTY!");
             return;
         }
 
-        printToLog(String.format("User id: %s sent: %s", userId, text));
+        LOGGER.debug("User id: {} sent: {}", userId, text);
 
         if (!connectionsToDB.isConnectionActive() && !connectionsToDB.createConnection()) {
             sendMessageToBot(ERROR_TRY_AGAIN_LATER);
-            printToLog("Error: Can not create connection!");
+            LOGGER.error("Error: Can not create connection!");
             return;
         }
 
         usersTableFromDB = connectionsToDB.getIdAndIsAvailableFromUsersTableFromDB();
         if (usersTableFromDB == null) {
-            printToLog(MY_BOT_ERROR + " 4: usersTableFromDB is null!");
+            LOGGER.error(MY_BOT_ERROR, 4, "usersTableFromDB is null!");
             return;
         }
 
         boolean isUsersTableContainsKey = usersTableFromDB.containsKey(userId);
         if (!isUsersTableContainsKey || (isUsersTableContainsKey && !usersTableFromDB.get(userId))) {
             if (!isUsersTableContainsKey) {
-                printToLog("Chat id not contains in usersTableFromDB");
+                LOGGER.debug("Chat id not contains in usersTableFromDB");
             } else {
-                printToLog("Bot status: stopped");
+                LOGGER.debug("Bot status: stopped");
             }
             if (!text.equals(START)) {
                 text = STOP;
@@ -314,7 +315,7 @@ public class MyBot extends TelegramLongPollingBot {
             return;
         }
         if (text.equals(STOP_BOT) && isAdminId()) {
-            printToLog("Stop command received. Exiting...");
+            LOGGER.debug("Stop command received. Exiting...");
             shutdownJar();
         }
         if (text.equals(STOP)) {
@@ -676,10 +677,10 @@ public class MyBot extends TelegramLongPollingBot {
     }
 
     protected void getSubscriptions() {
-        printToLog("getSubscriptions");
+        LOGGER.debug("getSubscriptions");
 
         if (!connectionsToDB.isConnectionActive() && !connectionsToDB.createConnection()) {
-            printToLog("Error: Can not create connection!");
+            LOGGER.debug("Error: Can not create connection!");
             return;
         }
 
@@ -691,7 +692,7 @@ public class MyBot extends TelegramLongPollingBot {
 
             String lastActionTimeFromDB = connectionsToDB.getLastActionTimeInUsersTableByUserId(id);
             if (lastActionTimeFromDB.equals(StringUtils.EMPTY)) {
-                printToLog("Error: lastActionTimeFromDB empty!");
+                LOGGER.error("Error: lastActionTimeFromDB empty!");
                 continue;
             }
 
@@ -699,7 +700,7 @@ public class MyBot extends TelegramLongPollingBot {
             try {
                 parsedLastActionTime = LOCAL_DATE_TIME_FORMATTER_FOR_SQL.parse(lastActionTimeFromDB);
             } catch (DateTimeParseException e) {
-                printToLog("Error: in parse lastActionTimeFromDB!");
+                LOGGER.error("Error: in parse lastActionTimeFromDB!");
                 continue;
             }
 
@@ -707,29 +708,29 @@ public class MyBot extends TelegramLongPollingBot {
             try {
                 dateAndTime = LocalDateTime.from(parsedLastActionTime);
             } catch (DateTimeParseException e) {
-                printToLog("LocalDateTime error: " + e.getMessage());
+                LOGGER.debug("LocalDateTime error: {}", e.getMessage());
                 try {
                     dateAndTime = LocalDate.from(parsedLastActionTime).atStartOfDay();
                 } catch (DateTimeParseException e2) {
-                    printToLog("LocalDate error: " + e2.getMessage());
+                    LOGGER.error("LocalDate error: {}", e2.getMessage());
                     continue;
                 }
             }
 
             if (LocalDateTime.now().minusMinutes(4).isBefore(dateAndTime)) {
-                printToLog("4 minutes have not passed yet!");
+                LOGGER.debug("4 minutes have not passed yet!");
                 continue;
             }
 
             Set<String> districtsByUserId = connectionsToDB.getDistrictsByUserId(id);
             if (districtsByUserId.isEmpty()) {
-                printToLog("districtsByUserId empty!");
+                LOGGER.debug("districtsByUserId empty!");
                 continue;
             }
 
             Map<String, String> userSubscriptionsMap = connectionsToDB.getSubscriptionsMapByUserId(id);
             if (userSubscriptionsMap.isEmpty()) {
-                printToLog("subscriptionMap empty!");
+                LOGGER.debug("subscriptionMap empty!");
                 continue;
             }
 
@@ -739,29 +740,30 @@ public class MyBot extends TelegramLongPollingBot {
                 String benefit = entry.getValue();
                 Map<String, Map<String, ArrayList<DistrictsDTO>>> lastMapByDrugInWeb = getLastMapByDrugInWeb(drugName);
                 if (lastMapByDrugInWeb.isEmpty()) {
-                    printToLog("Drug not found in web: " + drugName);
+                    LOGGER.debug("Drug not found in web: {}", drugName);
                     continue;
                 }
                 if (lastMapByDrugInWeb.containsKey(RESPONSE_DTO_IS_NULL) ||
                         lastMapByDrugInWeb.containsKey(ERROR_IN_FIND_DRUGS) ||
                         lastMapByDrugInWeb.containsKey(UNSUCCESSFUL_RESULT)) {
-                    printToLog("Smth problem, drug not found in web: " + drugName);
+                    LOGGER.error("Smth problem, drug not found in web: {}", drugName);
                     return;
                 }
                 Map<String, ArrayList<DistrictsDTO>> districtsMapFromWeb = lastMapByDrugInWeb.get(drugName);
                 String internationalName = getInternationalName(districtsByUserId, districtsMapFromWeb);
                 List<String> messagesList = getMessagesListOfDrugsMoreThanZero(districtsByUserId, districtsMapFromWeb, benefit);
                 if (!messagesList.isEmpty()) {
+                    sendMessage.setChatId(id);
                     sendFoundedDrugsToBot(drugName, benefit, internationalName, messagesList, false);
-                    printToLog("Drug exists: " + drugName);
+                    LOGGER.debug("Drug exists: {}", drugName);
                     countFounded++;
                 } else {
-                    printToLog("Drug not exists: " + drugName);
+                    LOGGER.debug("Drug not exists: {}", drugName);
                 }
             }
 
             if (countFounded > 0) {
-                sendMessageToBot("Поиск лекарст из ваших подписок происходит каждые 5 минут." +
+                sendMessageToBot("Поиск лекарств из ваших подписок происходит каждые 5 минут." +
                         LINE_SEPARATOR + "Чтобы больше не получать уведомления, вы можете отписаться: " + UNSUBSCRIBE);
             }
         }
@@ -865,7 +867,7 @@ public class MyBot extends TelegramLongPollingBot {
         try {
             execute(message);
         } catch (TelegramApiException e) {
-            printToLog(MY_BOT_ERROR + " 6: " + e.getMessage());
+            LOGGER.error(MY_BOT_ERROR, 6, e.getMessage());
         }
     }
 

@@ -1,8 +1,10 @@
 package my.projects.java;
 
-import static my.projects.java.Main.printToLog;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class PropertiesDTO {
+    private static final Logger LOGGER = LogManager.getLogger(Main.class);
     private String botToken;
     private String botUsername;
     private String pathToJsonFromWeb;
@@ -60,31 +62,31 @@ public class PropertiesDTO {
     public boolean isAllPropertiesNotEmpty(){
         boolean result = true;
         if (botToken.isEmpty()){
-            printToLog("botToken empty!");
+            LOGGER.debug("botToken empty!");
             result = false;
         }
         if (botUsername.isEmpty()){
-            printToLog("botUsername empty!");
+            LOGGER.debug("botUsername empty!");
             result = false;
         }
         if (pathToJsonFromWeb.isEmpty()){
-            printToLog("pathToJsonFromWeb empty!");
+            LOGGER.debug("pathToJsonFromWeb empty!");
             result = false;
         }
         if (adminId <= 0){
-            printToLog("adminId empty!");
+            LOGGER.debug("adminId empty!");
             result = false;
         }
         if (databaseUrl.isEmpty()){
-            printToLog("databaseUrl empty!");
+            LOGGER.debug("databaseUrl empty!");
             result = false;
         }
         if (databaseUsername.isEmpty()){
-            printToLog("databaseUsername empty!");
+            LOGGER.debug("databaseUsername empty!");
             result = false;
         }
         if (databasePassword.isEmpty()){
-            printToLog("databasePassword empty!");
+            LOGGER.debug("databasePassword empty!");
             result = false;
         }
         return result;
