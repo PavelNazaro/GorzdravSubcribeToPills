@@ -1,15 +1,16 @@
 package my.projects.java;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.sql.*;
 import java.util.*;
 
-import static my.projects.java.Main.printToLog;
-
 public class ConnectionsToDB {
-    private static final String CONNECTIONS_TO_DB_ERROR_IN_SQL = "ConnectionsToDB Error %s. Error in sql: ";
-    private static final String SQL = "sql: ";
+    private static final Logger LOGGER = LogManager.getLogger(Main.class);
+    private static final String CONNECTIONS_TO_DB_ERROR_IN_SQL = "ConnectionsToDB Error {}. Error in sql: {}";
+    private static final String SQL = "sql: {}";
     private final PropertiesDTO propertiesDTO;
     private Connection connection = null;
 
@@ -19,7 +20,7 @@ public class ConnectionsToDB {
 
     protected Map<Long, Boolean> getIdAndIsAvailableFromUsersTableFromDB() {
         String sql = "SELECT id, is_available FROM users_table";
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
         Map<Long, Boolean> usersMap = new HashMap<>();
 
         try (PreparedStatement statement = connection.prepareStatement(sql);
@@ -28,11 +29,11 @@ public class ConnectionsToDB {
             while (resultSet.next()) {
                 long id = resultSet.getLong("id");
                 boolean isAvailable = resultSet.getBoolean("is_available");
-                printToLog("id: " + id + ", isAvailable: " + isAvailable);
+                LOGGER.debug("id: " + id + ", isAvailable: " + isAvailable);
                 usersMap.put(id, isAvailable);
             }
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 1) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 1, e.getMessage());
         }
 
         return usersMap;
@@ -40,14 +41,14 @@ public class ConnectionsToDB {
 
     protected boolean updateUsersTable(long userId, boolean isAvailable, String timestamp, String userName) {
         String sql = String.format("INSERT INTO users_table (id, is_available, last_action_time, name) VALUES (%s,%s,'%s','%s') ON CONFLICT(id) DO UPDATE SET is_available=%s, last_action_time='%s', name='%s'", userId, isAvailable, timestamp, userName, isAvailable, timestamp, userName);
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int i = statement.executeUpdate();
-            printToLog("i: " + i);
+            LOGGER.debug("i: " + i);
             return i >= 1;
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 2) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 2, e.getMessage());
         }
 
         return false;
@@ -55,14 +56,14 @@ public class ConnectionsToDB {
 
     protected boolean updateLastActionTimeInUsersTableByUserId(long userId, String timestamp) {
         String sql = String.format("UPDATE users_table SET last_action_time='%s' WHERE id = %s", timestamp, userId);
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int i = statement.executeUpdate();
-            printToLog("i: " + i);
+            LOGGER.debug("i: " + i);
             return i >= 1;
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 3) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 3, e.getMessage());
         }
 
         return false;
@@ -70,17 +71,17 @@ public class ConnectionsToDB {
 
     protected String getLastActionTimeInUsersTableByUserId(long userId) {
         String sql = String.format("SELECT last_action_time FROM users_table WHERE id = %s", userId);
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             ResultSet resultSet = statement.executeQuery();
             if (resultSet.next()) {
                 String timestamp = resultSet.getString("last_action_time");
-                printToLog("lastActionTimeFromDB: " + timestamp);
+                LOGGER.debug("lastActionTimeFromDB: " + timestamp);
                 return timestamp;
             }
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 4) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 4, e.getMessage());
         }
 
         return StringUtils.EMPTY;
@@ -88,14 +89,14 @@ public class ConnectionsToDB {
 
     protected Map<Integer, String> getDistrictsTable() {
         String sql = "SELECT id,name FROM districts_table";
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
 
         return getSimpleTable(sql);
     }
 
     protected Set<String> getDistrictsByUserId(long userId) {
         String sql = String.format("SELECT user_id, name FROM user_districts_table JOIN districts_table ON user_districts_table.districts_id=districts_table.id where user_id=%s", userId);
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
         Set<String> userDistrictsSet = new TreeSet<>();
 
         try (PreparedStatement statement = connection.prepareStatement(sql);
@@ -103,11 +104,11 @@ public class ConnectionsToDB {
 
             while (resultSet.next()) {
                 String name = resultSet.getString("name");
-                printToLog("name: " + name);
+                LOGGER.debug("name: " + name);
                 userDistrictsSet.add(name);
             }
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 7) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 7, e.getMessage());
         }
 
         return userDistrictsSet;
@@ -115,18 +116,18 @@ public class ConnectionsToDB {
 
     protected long getDistrictIdByNameFromDistrictsTable(String districtName) {
         String sql = String.format("select id from districts_table where name='%s'", districtName);
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
 
         try (PreparedStatement statement = connection.prepareStatement(sql);
              ResultSet resultSet = statement.executeQuery()) {
 
             if (resultSet.next()) {
                 long id = resultSet.getLong("id");
-                printToLog("id: " + id);
+                LOGGER.debug("id: " + id);
                 return id;
             }
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 8) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 8, e.getMessage());
         }
 
         return 0;
@@ -135,18 +136,18 @@ public class ConnectionsToDB {
     protected boolean addNewToUserDistrictsTable(long userId, String districtName) {
         long districtId = getDistrictIdByNameFromDistrictsTable(districtName);
         if (districtId == 0) {
-            printToLog("districtId 0");
+            LOGGER.debug("districtId 0");
             return false;
         }
         String sql = String.format("INSERT INTO user_districts_table VALUES (%s,%s)", userId, districtId);
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int i = statement.executeUpdate();
-            printToLog("i: " + i);
+            LOGGER.debug("i: " + i);
             return i >= 1;
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 9) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 9, e.getMessage());
         }
 
         return false;
@@ -155,18 +156,18 @@ public class ConnectionsToDB {
     protected boolean removeDistrictIdFromUserDistrictsTable(long userId, String districtName) {
         long districtId = getDistrictIdByNameFromDistrictsTable(districtName);
         if (districtId == 0) {
-            printToLog("districtId 0");
+            LOGGER.debug("districtId 0");
             return false;
         }
         String sql = String.format("DELETE FROM user_districts_table WHERE (user_id=%s and districts_id=%s)", userId, districtId);
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int i = statement.executeUpdate();
-            printToLog("i: " + i);
+            LOGGER.debug("i: " + i);
             return i >= 1;
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 10) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 10, e.getMessage());
         }
 
         return false;
@@ -174,14 +175,14 @@ public class ConnectionsToDB {
 
     protected boolean removeAllDistrictsIdFromUserDistrictsTable(long userId) {
         String sql = String.format("DELETE FROM user_districts_table WHERE (user_id=%s)", userId);
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int i = statement.executeUpdate();
-            printToLog("i: " + i);
+            LOGGER.debug("i: " + i);
             return i >= 1;
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 11) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 11, e.getMessage());
         }
 
         return false;
@@ -195,14 +196,14 @@ public class ConnectionsToDB {
         createSql.deleteCharAt(createSql.length() - 1);//remove last ','
 
         String sql = createSql.toString();
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int i = statement.executeUpdate();
-            printToLog("i: " + i);
+            LOGGER.debug("i: " + i);
             return i >= 1;
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 12) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 12, e.getMessage());
         }
 
         return false;
@@ -210,7 +211,7 @@ public class ConnectionsToDB {
 
     protected Set<String> getBenefitNamesFromBenefitsTable() {
         String sql = "SELECT name FROM benefits_table";
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
         Set<String> benefitsSet = new LinkedHashSet<>();
 
         try (PreparedStatement statement = connection.prepareStatement(sql);
@@ -218,11 +219,11 @@ public class ConnectionsToDB {
 
             while (resultSet.next()) {
                 String name = resultSet.getString("name");
-                printToLog("name: " + name);
+                LOGGER.debug("name: " + name);
                 benefitsSet.add(name);
             }
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 13) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 13, e.getMessage());
         }
 
         return benefitsSet;
@@ -230,25 +231,25 @@ public class ConnectionsToDB {
 
     protected Map<Integer, String> getBenefitsTable() {
         String sql = "SELECT id,name FROM benefits_table";
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
 
         return getSimpleTable(sql);
     }
 
     protected long getBenefitIdByNameFromBenefitsTable(String benefitName) {
         String sql = String.format("select id from benefits_table where name='%s'", benefitName);
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
 
         try (PreparedStatement statement = connection.prepareStatement(sql);
              ResultSet resultSet = statement.executeQuery()) {
 
             if (resultSet.next()) {
                 long id = resultSet.getLong("id");
-                printToLog("id: " + id);
+                LOGGER.debug("id: " + id);
                 return id;
             }
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 15) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 15, e.getMessage());
         }
 
         return 0;
@@ -257,18 +258,18 @@ public class ConnectionsToDB {
     protected boolean addNewToUserSubscriptionsTable(long userId, String subscriptionName, String benefitName) {
         long benefitId = getBenefitIdByNameFromBenefitsTable(benefitName);
         if (benefitId == 0) {
-            printToLog("benefitId 0");
+            LOGGER.debug("benefitId 0");
             return false;
         }
         String sql = String.format("INSERT INTO user_subscriptions_table VALUES (%s,'%s',%s)", userId, subscriptionName, benefitId);
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int i = statement.executeUpdate();
-            printToLog("i: " + i);
+            LOGGER.debug("i: " + i);
             return i >= 1;
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 16) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 16, e.getMessage());
         }
 
         return false;
@@ -276,14 +277,14 @@ public class ConnectionsToDB {
 
     protected boolean removeFromUserSubscriptionsTableByUserId(long userId, String subscriptionName) {
         String sql = String.format("DELETE FROM user_subscriptions_table WHERE (user_id=%s and subscriptions_name='%s')", userId, subscriptionName);
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int i = statement.executeUpdate();
-            printToLog("i: " + i);
+            LOGGER.debug("i: " + i);
             return i >= 1;
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 17) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 17, e.getMessage());
         }
 
         return false;
@@ -291,14 +292,14 @@ public class ConnectionsToDB {
 
     protected boolean removeAllFromUserSubscriptionsTableByUserId(long userId) {
         String sql = String.format("DELETE FROM user_subscriptions_table WHERE (user_id=%s)", userId);
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int i = statement.executeUpdate();
-            printToLog("i: " + i);
+            LOGGER.debug("i: " + i);
             return i >= 1;
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 18) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 18, e.getMessage());
         }
 
         return false;
@@ -306,7 +307,7 @@ public class ConnectionsToDB {
 
     protected Map<String, String> getSubscriptionsMapByUserId(long userId) {
         String sql = String.format("SELECT subscriptions_name, name FROM user_subscriptions_table JOIN benefits_table ON user_subscriptions_table.benefit_id=benefits_table.id where user_id=%s", userId);
-        printToLog(SQL + sql);
+        LOGGER.debug(SQL, sql);
         Map<String, String> userSubscriptionsMap = new TreeMap<>();
 
         try (PreparedStatement statement = connection.prepareStatement(sql);
@@ -315,11 +316,11 @@ public class ConnectionsToDB {
             while (resultSet.next()) {
                 String subscriptionsName = resultSet.getString("subscriptions_name");
                 String name = resultSet.getString("name");
-                printToLog("subscriptionsName: " + subscriptionsName + " name: " + name);
+                LOGGER.debug("subscriptionsName: " + subscriptionsName + "; name: " + name);
                 userSubscriptionsMap.put(subscriptionsName, name);
             }
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 19) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 19, e.getMessage());
         }
 
         return userSubscriptionsMap;
@@ -334,11 +335,11 @@ public class ConnectionsToDB {
             while (resultSet.next()) {
                 int id = resultSet.getInt("id");
                 String name = resultSet.getString("name");
-                printToLog("id: " + id + " name: " + name);
+                LOGGER.debug("id: " + id + " name: " + name);
                 resultMap.put(id, name);
             }
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 14) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 14, e.getMessage());
         }
         return resultMap;
     }
@@ -348,16 +349,16 @@ public class ConnectionsToDB {
             Class.forName("org.sqlite.JDBC");
             connection = DriverManager.getConnection(propertiesDTO.getDatabaseUrl());
             if (connection == null || connection.isClosed()) {
-                printToLog("Failed to make a connection!");
+                LOGGER.debug("Failed to make a connection!");
                 return false;
             }
-            printToLog("Connected to the database!");
+            LOGGER.debug("Connected to the database!");
 
             connection.setSchema("mydatabase");
 
             return true;
         } catch (SQLException | ClassNotFoundException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 20) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 20, e.getMessage());
         }
         return false;
     }
@@ -365,9 +366,9 @@ public class ConnectionsToDB {
     protected boolean closeConnection() {
         try {
             connection.close();
-            printToLog("Connection closed!");
+            LOGGER.debug("Connection closed!");
         } catch (SQLException e) {
-            printToLog(String.format(CONNECTIONS_TO_DB_ERROR_IN_SQL, 21) + e.getMessage());
+            LOGGER.error(CONNECTIONS_TO_DB_ERROR_IN_SQL, 21, e.getMessage());
             return false;
         }
         return true;

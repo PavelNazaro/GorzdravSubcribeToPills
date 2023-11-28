@@ -1,5 +1,7 @@
 package my.projects.java;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -13,10 +15,9 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-import static my.projects.java.Main.printToLog;
-
 public class JsonWebParser {
-    private static final String JSON_PARSER_ERROR = "JsonParser Error";
+    private static final Logger LOGGER = LogManager.getLogger(Main.class);
+    private static final String JSON_PARSER_ERROR = "JsonParser Error {}: {}";
 
     public JsonWebParser() {
     }
@@ -30,19 +31,19 @@ public class JsonWebParser {
         Map<String, Map<String, ArrayList<DistrictsDTO>>> mapMap = new LinkedHashMap<>();
 
         if (responseDTO == null) {
-            printToLog(JSON_PARSER_ERROR + " 1: " + MyBot.RESPONSE_DTO_IS_NULL);
+            LOGGER.debug(JSON_PARSER_ERROR, "1", MyBot.RESPONSE_DTO_IS_NULL);
             mapMap.put(MyBot.RESPONSE_DTO_IS_NULL, new HashMap<>());
             return mapMap;
         }
 
         if (Boolean.FALSE.equals(responseDTO.getSuccess())) {
-            printToLog(JSON_PARSER_ERROR + " 2: " + MyBot.UNSUCCESSFUL_RESULT);
+            LOGGER.debug(JSON_PARSER_ERROR, 2, MyBot.UNSUCCESSFUL_RESULT);
             mapMap.put(MyBot.UNSUCCESSFUL_RESULT, new HashMap<>());
             return mapMap;
         }
 
         if (responseDTO.getResult().isEmpty()) {
-            printToLog(JSON_PARSER_ERROR + " 3: " + MyBot.ERROR_IN_FIND_DRUGS);
+            LOGGER.debug(JSON_PARSER_ERROR, 3, MyBot.ERROR_IN_FIND_DRUGS);
             mapMap.put(MyBot.ERROR_IN_FIND_DRUGS, new HashMap<>());
             return mapMap;
         }
@@ -86,7 +87,7 @@ public class JsonWebParser {
         }
 
         if (mapMap.isEmpty()) {
-            printToLog(JSON_PARSER_ERROR + "4: " + "Map is empty");
+            LOGGER.debug(JSON_PARSER_ERROR, 4, "Map is empty");
         }
 
         return mapMap;
@@ -96,14 +97,14 @@ public class JsonWebParser {
         try {
             JSONObject jsonObject = new JSONObject(getDataFromJson(bot, drug));
             if (jsonObject.isEmpty()) {
-                printToLog(JSON_PARSER_ERROR + "5: " + "JsonObject is empty");
+                LOGGER.debug(JSON_PARSER_ERROR, 5, "JsonObject is empty");
             }
 
             return new ResponseDTO(
                     jsonObject.getJSONObject("result"),
                     jsonObject.getBoolean("success"));
         } catch (JSONException e) {
-            printToLog(JSON_PARSER_ERROR + "6: " + "JsonObject exception");
+            LOGGER.debug(JSON_PARSER_ERROR, 6, "JsonObject exception");
         }
         return null;
     }
@@ -114,7 +115,7 @@ public class JsonWebParser {
             String url = bot.getPathToJsonFromWeb() + URLEncoder.encode(drug, StandardCharsets.UTF_8);
             return readUrl(url);
         } catch (IOException e) {
-            printToLog(JSON_PARSER_ERROR + "7: " + "Connection");
+            LOGGER.debug(JSON_PARSER_ERROR, 7, "Connection");
             return "{\"result\": {\"Drugname\":\"Drugname\"},\"success\":false}";
         }
     }

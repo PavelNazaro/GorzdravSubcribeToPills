@@ -1,13 +1,15 @@
 package my.projects.java;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.Calendar;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import static my.projects.java.Main.printToLog;
-
 public class MyTimer {
 
+    private static final Logger LOGGER = LogManager.getLogger(Main.class);
     public static final int ONE_SECOND_PERIOD = 1000;
     public static final int ONE_MINUTE_PERIOD = 60 * ONE_SECOND_PERIOD;
     public static final int ONE_HOUR_PERIOD = 60 * ONE_MINUTE_PERIOD;
@@ -27,7 +29,7 @@ public class MyTimer {
                 Calendar currentTime = Calendar.getInstance();
 
                 if (isAt00Each5Minutes(currentTime)){
-                    printToLog("Task executed!");
+                    LOGGER.debug("Task executed!");
                     bot.getSubscriptions();
                 }
             }
