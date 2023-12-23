@@ -29,6 +29,7 @@ ToDo tasks:
 14) <s>Constant (once every 5 minutes) monitoring of the availability of a drug from user subscriptions and sending a notification when it appears daily;</s>
 15) <s>Not to search in the background if 4 minutes have not passed since the last user action;</s>
 16) <s>Use log4j2;</s>
+17) <s>User could subscribe to drug even if it not found</s>
 17) Once a pill is found in the background suggest to user not to send any more notifications today;
 18) Save old searches (drug names) and offer them with the button;
 19) Add searches (names of drugs) to the general list with the number of users looking for them and suggest these drugs when searching;
@@ -52,6 +53,7 @@ ToDo tasks:
 14) <s>Постоянный (раз в 5 минут) мониторинг наличия лекарства из подписок пользователей и отправки уведомления при появлении;</s>
 15) <s>Не искать фоном, если с последнего действия пользователя не прошло 4 минуты;</s>
 16) <s>Использовать log4j2;</s>
+17) <s>Пользователь может подписаться на лекарство даже если оно не было найдено</s>
 17) После того как лекарство найдено в фоновом режиме предложить пользователю больше не присылать уведомления сегодня;
 18) Сохранять старые поиски (названия лекарств) и предлагать их кнопкой;
 19) Добавлять поиски (названия лекарств) в общий список с количеством пользователей ищущих их и предлагать эти лекарства при поиске;

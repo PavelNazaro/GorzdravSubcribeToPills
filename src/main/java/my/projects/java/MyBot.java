@@ -51,6 +51,7 @@ public class MyBot extends TelegramLongPollingBot {
     private static final String SEND_MESSAGE_TO_ALL_USERS_BOT_UPDATED = "/smtaubu";
     private static final String PROCEED_USER_CHOOSE_FIND_DRUGS = "/proceed_user_choose_find_drugs";
     private static final String PROCEED_USER_CHOOSE_BENEFITS = "/proceed_user_choose_benefits";
+    private static final String SUBSCRIBE_TO_UNFOUNDED_DRUG = "/subscribe_to_unfounded_drug";
     private static final String PROCEED_JSON_PARSER = "/proceed_json_parser";
 
     private static final String SPACE = StringUtils.SPACE;
@@ -107,7 +108,7 @@ public class MyBot extends TelegramLongPollingBot {
     private static final String INFO = "Информация";
     private static final String WRONG_NAME = "Неправильное название";
     private static final String PHARMACIES_AND_AVAILABILITY = "Аптеки и наличие в ваших выбранных районах:";
-    private static final String NOTHING_FOUND_SEND_ANOTHER_DRUG_NAME = "Ничего не найдено! Введите другое название:";
+    private static final String NOTHING_FOUND_YOU_COULD_SUBSCRIBE_OR_SEND_ANOTHER_DRUG_NAME = "Ничего не найдено! Вы можете подписаться на '%s' или введите другое название если вы ошиблись:";
     private static final String ERROR_IN_CONNECTION_TRY_AGAIN_LATER = "Ошибка в подключении: Возможно сервер лекарст не отвечает. Попробуйте попозже";
     protected static final String INFO_BEFORE_VISIT = "На момент обращения в аптеку не гарантируется наличие лекарственного препарата к выдаче, в связи с ограничением количества препарата в аптеке. Информацию о наличии препарата необходимо уточнить по телефону";
     protected static final String UNSUCCESSFUL_RESULT = "Unsuccessful result";
@@ -119,6 +120,7 @@ public class MyBot extends TelegramLongPollingBot {
     private static final String BUTTON_ADD = ROUND_BRACKET_OPEN + "Добавить" + ROUND_BRACKET_CLOSE;
     private static final String BUTTON_DELETE = ROUND_BRACKET_OPEN + "Удалить" + ROUND_BRACKET_CLOSE;
     private static final List<List<String>> SUBSCRIBE_AND_EXIT_BUTTONS = List.of(List.of(SUBSCRIBE, EXIT_TO_MENU));
+    private static final List<List<String>> SUBSCRIBE_BUTTON = List.of(List.of(SUBSCRIBE));
 
     private enum SubscriptionsEnum {
         ALL, SUBSCRIPTIONS_ONLY, DISTRICTS_ONLY;
@@ -247,7 +249,7 @@ public class MyBot extends TelegramLongPollingBot {
             }
 
             if (isAdminId()) {
-                sendReplyKeyboardToBot(WRITE_DRUG_NAME, List.of(List.of("Юперио", "Салтиказон")));
+                sendReplyKeyboardToBot(WRITE_DRUG_NAME, List.of(List.of("Юперио", "Libre", "Салтиказон")));
             } else {
                 sendMessageToBot(WRITE_DRUG_NAME);
             }
@@ -347,6 +349,21 @@ public class MyBot extends TelegramLongPollingBot {
         }
         if (lastCommand.equals(SEND_MESSAGE_TO_ALL_USERS) && isAdminId()) {
             sendMessageToAllUsers(text);
+            return;
+        }
+        if (lastCommand.equals(FIND_DRUGS) && text.equals(SUBSCRIBE)) {
+            if (proceedUserChooseFindDrugs(lastMap.keySet().iterator().next(), true)) {
+                lastCommand = SUBSCRIBE_TO_UNFOUNDED_DRUG;
+            }
+            return;
+        }
+        if (lastCommand.equals(SUBSCRIBE_TO_UNFOUNDED_DRUG)) {
+            if (connectionsToDB.getBenefitNamesFromBenefitsTable().contains(text)) {
+                lastUserChoose.setBenefit(text);
+                subscribeToDrug();
+            } else {
+                sendMessageToBot(ERROR_IN_CHOOSE_WITH_CAUSE + WRONG_NAME);
+            }
             return;
         }
 
@@ -473,7 +490,7 @@ public class MyBot extends TelegramLongPollingBot {
 
     private void proceedJsonParser(String text) {
         if (lastMap.containsKey(text)) {
-            if (proceedUserChooseFindDrugs(text)) {
+            if (proceedUserChooseFindDrugs(text, false)) {
                 lastCommand = PROCEED_USER_CHOOSE_FIND_DRUGS;
             }
         } else {
@@ -482,10 +499,12 @@ public class MyBot extends TelegramLongPollingBot {
         }
     }
 
-    private boolean proceedUserChooseFindDrugs(String text) {
+    private boolean proceedUserChooseFindDrugs(String text, boolean isUnfounded) {
         if (connectionsToDB.getSubscriptionsMapByUserId(userId).containsKey(text)) {
             sendMessageToBot(ERROR_IN_CHOOSE_WITH_CAUSE + ALREADY_EXIST);
-            sendFoundedDrugsToBot();
+            if (!isUnfounded) {
+                sendFoundedDrugsToBot();
+            }
             return false;
         }
 
@@ -561,7 +580,9 @@ public class MyBot extends TelegramLongPollingBot {
         lastMap = getLastMapByDrugInWeb(text);
         if (lastMap.isEmpty() || lastMap.containsKey(ERROR_IN_FIND_DRUGS) || lastMap.containsKey(RESPONSE_DTO_IS_NULL)) {
             if (lastCommand.equals(FIND_DRUGS)) {
-                sendMessageToBot(NOTHING_FOUND_SEND_ANOTHER_DRUG_NAME);
+                lastMap.clear();
+                lastMap.put(text, Collections.emptyMap());
+                sendReplyKeyboardToBot(String.format(NOTHING_FOUND_YOU_COULD_SUBSCRIBE_OR_SEND_ANOTHER_DRUG_NAME, text), SUBSCRIBE_BUTTON);
                 return lastCommand;
             }
 
@@ -739,12 +760,11 @@ public class MyBot extends TelegramLongPollingBot {
                 String drugName = entry.getKey();
                 String benefit = entry.getValue();
                 Map<String, Map<String, ArrayList<DistrictsDTO>>> lastMapByDrugInWeb = getLastMapByDrugInWeb(drugName);
-                if (lastMapByDrugInWeb.isEmpty()) {
+                if (lastMapByDrugInWeb.isEmpty() || lastMapByDrugInWeb.containsKey(RESPONSE_DTO_IS_NULL)) {
                     LOGGER.debug("Drug not found in web: {}", drugName);
                     continue;
                 }
-                if (lastMapByDrugInWeb.containsKey(RESPONSE_DTO_IS_NULL) ||
-                        lastMapByDrugInWeb.containsKey(ERROR_IN_FIND_DRUGS) ||
+                if (lastMapByDrugInWeb.containsKey(ERROR_IN_FIND_DRUGS) ||
                         lastMapByDrugInWeb.containsKey(UNSUCCESSFUL_RESULT)) {
                     LOGGER.error("Smth problem, drug not found in web: {}", drugName);
                     return;
