@@ -23,7 +23,7 @@ public class Main {
     private static final String STOP = "stop";
 
     public static void main(String[] args) {
-        LOGGER.debug("----------Java started----------");
+        LOGGER.debug("\n\n----------Java started----------\n");
         long startTime = System.nanoTime();
 
         checkAbsolutePath();
